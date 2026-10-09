@@ -167,6 +167,8 @@ var _drift := 0.0  ## 0 = full grip, 1 = rear fully broken loose
 var _wheelbase := 2.75
 var _effects: CarEffects
 var _suspension: CarSuspension
+var _audio: CarAudio
+var _wheels_touching := 0  ## counted by the wheel visuals each tick
 var _paint: ShaderMaterial
 
 @onready var _wheel_pivots: Array[Node3D] = [
@@ -193,6 +195,8 @@ func _ready() -> void:
 		_suspension = CarSuspension.new()
 		$Visual.add_child(_suspension)
 		_suspension.setup($Visual/Chassis, _wheel_pivots)
+		_audio = CarAudio.new()
+		add_child(_audio)
 	for pivot in _wheel_pivots:
 		_anchors.append(pivot.position)
 	_wheelbase = absf(_anchors[0].z - _anchors[2].z)
@@ -211,6 +215,7 @@ func _ready() -> void:
 
 
 func _physics_process(delta: float) -> void:
+	_wheels_touching = 0
 	if multiplayer.is_server():
 		_server_tick(delta)
 	elif _is_predicted():
@@ -223,6 +228,7 @@ func _physics_process(delta: float) -> void:
 			linear_velocity if multiplayer.is_server() or _is_predicted() else net_velocity
 		)
 		_suspension.update(delta, velocity, global_basis)
+		_update_audio(delta, velocity)
 
 
 func _server_tick(delta: float) -> void:
@@ -350,6 +356,17 @@ func _update_respawn(delta: float) -> void:
 		is_destroyed = false
 
 
+func _update_audio(delta: float, velocity: Vector3) -> void:
+	var forward := -global_basis.z
+	var speed_ratio := absf(velocity.dot(forward)) / max_speed
+	# Remote cars' throttle isn't replicated; assume they're mostly on it.
+	var throttle := absf(input.throttle) if is_locally_controlled else 0.7
+	if is_destroyed:
+		throttle = 0.0
+	var slip := absf(velocity.dot(global_basis.x))
+	_audio.update(delta, speed_ratio, throttle, slip, _wheels_touching > 0, velocity.y)
+
+
 ## Picks this car's colours from its name (the peer id in a match), so every
 ## peer paints it the same without sending anything over the network.
 func _apply_livery() -> void:
@@ -371,6 +388,7 @@ func _show_destroyed_state() -> void:
 		wreck.roughness = 1.0
 		_body_mesh.material_override = wreck
 		Effects.explosion(get_parent(), global_position)
+		Sfx.play_at(get_parent(), "explosion", global_position, 6.0, 0.05)
 	else:
 		_body_mesh.material_override = _paint
 
@@ -610,6 +628,8 @@ func _place_wheel_visual(
 	pivot.rotation.y = steer_angle * flip_sign
 	var velocity := linear_velocity if multiplayer.is_server() or _is_predicted() else net_velocity
 	_wheels[i].roll(velocity.dot(-global_basis.z) * flip_sign * delta)
+	if extension < suspension_travel - 0.001:
+		_wheels_touching += 1
 	if _effects:
 		var wheel_up := global_basis.y * flip_sign
 		var contact := global_transform * _anchors[i] - wheel_up * (extension + wheel_radius)

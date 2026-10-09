@@ -79,6 +79,7 @@ func _show_tracer(origin: Vector3, velocity: Vector3, shooter_path: NodePath) ->
 	if _is_headless:
 		return
 	Effects.muzzle_flash(self, origin, velocity)
+	Sfx.play_at(self, "gunshot", origin, -6.0, 0.06)
 	var tracer := Tracer.new()
 	tracer.node = _make_tracer_mesh()
 	tracer.velocity = velocity
@@ -105,6 +106,8 @@ func _step_tracers(delta: float) -> void:
 			continue
 		if not hit.is_empty():
 			Effects.impact(self, hit.position, hit.normal)
+			var sound := "impact_metal" if hit.collider is Car else "impact_dirt"
+			Sfx.play_at(self, sound, hit.position, -4.0)
 		tracer.node.queue_free()
 		_tracers.remove_at(i)
 

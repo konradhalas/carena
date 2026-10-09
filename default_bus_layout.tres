@@ -1,0 +1,23 @@
+[gd_resource type="AudioBusLayout" load_steps=3 format=3]
+
+[sub_resource type="AudioEffectReverb" id="Reverb_hall"]
+room_size = 0.75
+damping = 0.45
+spread = 0.8
+dry = 0.85
+wet = 0.22
+
+[sub_resource type="AudioEffectHardLimiter" id="Limiter_master"]
+ceiling_db = -0.5
+
+[resource]
+bus/0/effect/0/effect = SubResource("Limiter_master")
+bus/0/effect/0/enabled = true
+bus/1/name = &"World"
+bus/1/solo = false
+bus/1/mute = false
+bus/1/bypass_fx = false
+bus/1/volume_db = 0.0
+bus/1/send = &"Master"
+bus/1/effect/0/effect = SubResource("Reverb_hall")
+bus/1/effect/0/enabled = true
