@@ -42,7 +42,46 @@ func test_car_jumps_ramp_and_lands_on_wheels() -> void:
 
 	assert_float(max_height[0]).is_greater(4.0)
 	assert_float(_height_above_ground()).is_less(1.2)
-	assert_float(_up()).is_greater(0.95)
+	assert_float(_up()).is_greater(0.8)  # on its wheels (may rest on the sloped wall berm)
+
+
+func test_car_reaches_high_speed_on_open_ground() -> void:
+	_place(Vector3(48, 1.4, 47), PI / 2)  # heading -X along an open lane
+	_car.input.throttle = 1.0
+	await _step(seconds(4))
+
+	assert_float(_forward_speed()).is_greater(34.0)
+
+
+func test_rear_steer_gives_tight_low_speed_turns() -> void:
+	_place(Vector3(-30, 1.4, 35), 0.0)
+	_car.input.throttle = 0.35
+	_car.input.steer = 1.0
+	await _step(seconds(1.5))
+	var bounds := AABB(_car.global_position, Vector3.ZERO)
+	await _step(seconds(4), func(): bounds = bounds.expand(_car.global_position))
+
+	assert_float(maxf(bounds.size.x, bounds.size.z)).is_less(16.0)
+
+
+func test_handbrake_into_a_turn_starts_a_drift_that_recovers() -> void:
+	_place(Vector3(48, 1.4, 47), PI / 2)
+	_car.input.throttle = 1.0
+	await _step(seconds(1.5))
+	_car.input.steer = 1.0
+	_car.input.handbrake = true
+	await _step(seconds(0.5))
+	_car.input.handbrake = false
+	_car.input.steer = -0.3  # countersteer, stay on the throttle
+	var max_slip := [0.0]
+	await _step(seconds(1), func(): max_slip[0] = maxf(max_slip[0], absf(_slip_degrees())))
+	_car.input.steer = 0.0
+	await _step(seconds(1.5))
+
+	assert_float(max_slip[0]).is_greater(15.0)  # it actually slid
+	assert_float(max_slip[0]).is_less(60.0)  # ...without spinning out
+	assert_float(absf(_slip_degrees())).is_less(5.0)  # grip came back
+	assert_float(_forward_speed()).is_greater(20.0)
 
 
 func test_cornering_on_flat_ground_does_not_roll_car() -> void:
@@ -105,6 +144,13 @@ func _place(position: Vector3, yaw: float, roll := 0.0) -> void:
 func _height_above_ground() -> float:
 	var p := _car.global_position
 	return p.y - _terrain.height_at(p.x, p.z)
+
+
+func _slip_degrees() -> float:
+	var forward := -_car.global_basis.z
+	var right := forward.cross(Vector3.UP)
+	var along := maxf(absf(_car.linear_velocity.dot(forward)), 0.5)
+	return rad_to_deg(atan2(_car.linear_velocity.dot(right), along))
 
 
 func _up() -> float:

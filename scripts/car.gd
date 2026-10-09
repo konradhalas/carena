@@ -46,21 +46,37 @@ const MAX_INPUT_QUEUE := 4
 const FRONT_WHEELS: Array[int] = [0, 1]
 
 @export_group("Engine")
-@export var max_speed := 32.0
-@export var max_reverse_speed := 12.0
-@export var engine_acceleration := 20.0  ## m/s² at standstill
+@export var max_speed := 40.0
+@export var max_reverse_speed := 14.0
+@export var engine_acceleration := 26.0  ## m/s² at standstill
 @export var brake_deceleration := 30.0
 @export var coast_deceleration := 3.0
 
 @export_group("Steering")
-@export var max_steer_angle := 0.5  ## rad at low speed
-@export var high_speed_steer_angle := 0.18  ## rad at max_speed
+@export var max_steer_angle := 0.6  ## rad at low speed
+@export var high_speed_steer_angle := 0.26  ## rad at max_speed
+## Rear wheels steer against the fronts by this share of the front angle at
+## low speed (tighter turns), fading to `high_speed_rear_steer` at max_speed.
+@export var low_speed_rear_steer := 0.45
+@export var high_speed_rear_steer := 0.05
 
 @export_group("Tires")
 @export var wheel_radius := 0.6
 @export var grip := 0.6  ## 0..1, share of sideways slip removed per tick
-@export var handbrake_rear_grip := 0.08
 @export var tire_friction := 1.6  ## caps grip/drive force at this × load
+
+@export_group("Drift")
+## Handbrake breaks the rear loose; the slide then holds while you stay on the
+## throttle at a slip angle, and grip comes back once you straighten out.
+@export var drift_rear_grip := 0.1  ## rear grip while fully drifting
+@export var drift_front_grip := 0.85  ## share of front grip kept while drifting
+@export var handbrake_deceleration := 14.0  ## locked rear wheels, m/s²
+@export var drift_kick := 2.5  ## yaw help when pulling the handbrake into a turn
+@export var drift_hold_slip := 0.22  ## rad of slip angle that sustains a drift on throttle
+@export var drift_sustain_level := 0.75  ## drift amount held while powersliding
+@export var drift_recovery := 1.6  ## per second, grip coming back
+@export var spin_out_slip := 1.25  ## rad; beyond this yaw is damped to avoid spinning out
+@export var spin_damping := 3.0
 
 @export_group("Suspension")
 @export var suspension_travel := 0.35
@@ -131,6 +147,7 @@ var _fire_cooldown := 0.0
 var _respawn_timer := 0.0
 var _respawn_requested := false
 var _bot: BotDriver
+var _drift := 0.0  ## 0 = full grip, 1 = rear fully broken loose
 var _effects: CarEffects
 var _suspension: CarSuspension
 var _paint: ShaderMaterial
@@ -345,7 +362,10 @@ func _simulate(delta: float) -> void:
 	var wheel_up := global_basis.y * flip_sign
 	var forward := -global_basis.z
 	var speed := linear_velocity.dot(forward)
+	var right := forward.cross(wheel_up)
+	var slip_angle := atan2(linear_velocity.dot(right), maxf(absf(speed), 0.5))
 	var steer_angle := _steer_angle(input.steer, speed)
+	var rear_angle := _rear_steer_angle(steer_angle, speed)
 	var mass_per_wheel := mass / WHEEL_COUNT
 	var resting_load := mass_per_wheel * get_gravity().length()
 	var grounded := 0
@@ -355,9 +375,8 @@ func _simulate(delta: float) -> void:
 		var anchor := global_transform * _anchors[i]
 		var ray_length := suspension_travel + wheel_radius
 		var hit_distance := _probe_ground(anchor, wheel_up, ray_length)
-		_place_wheel_visual(
-			i, flip_sign, hit_distance - wheel_radius, steer_angle if is_front else 0.0, delta
-		)
+		var wheel_angle := steer_angle if is_front else rear_angle
+		_place_wheel_visual(i, flip_sign, hit_distance - wheel_radius, wheel_angle, delta)
 		if hit_distance >= ray_length:
 			continue
 		grounded += 1
@@ -371,21 +390,27 @@ func _simulate(delta: float) -> void:
 		spring = maxf(spring, 0.0)
 		apply_force(wheel_up * spring, offset)
 
-		var wheel_forward := forward.rotated(wheel_up, steer_angle) if is_front else forward
+		var wheel_forward := forward.rotated(wheel_up, wheel_angle)
 		var wheel_right := wheel_forward.cross(wheel_up)
 		var max_tire_force := tire_friction * maxf(spring, resting_load * 0.25)
 
 		# Sideways grip. Applied at the axle (≈ centre of mass), so cornering
 		# alone doesn't roll the car — flips come from terrain, not turning.
-		var wheel_grip := handbrake_rear_grip if input.handbrake and not is_front else grip
+		var wheel_grip := (
+			grip * lerpf(1.0, drift_front_grip, _drift)
+			if is_front
+			else lerpf(grip, drift_rear_grip, _drift)
+		)
 		var lateral := -point_velocity.dot(wheel_right) * wheel_grip * mass_per_wheel / delta
 		apply_force(wheel_right * clampf(lateral, -max_tire_force, max_tire_force), offset)
 
 		var longitudinal := _longitudinal_force(
-			point_velocity.dot(wheel_forward), speed, mass_per_wheel, delta
+			point_velocity.dot(wheel_forward), speed, mass_per_wheel, delta, is_front
 		)
 		apply_force(wheel_forward * clampf(longitudinal, -max_tire_force, max_tire_force), offset)
 
+	if grounded > 0:
+		_update_drift(delta, speed, slip_angle, wheel_up)
 	if is_destroyed:
 		return
 	if grounded == 0 and get_contact_count() > 0:
@@ -420,10 +445,13 @@ func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
 
 
 func _longitudinal_force(
-	wheel_speed: float, car_speed: float, mass_per_wheel: float, delta: float
+	wheel_speed: float, car_speed: float, mass_per_wheel: float, delta: float, is_front: bool
 ) -> float:
-	if input.handbrake or is_zero_approx(input.throttle):
-		var deceleration := brake_deceleration if input.handbrake else coast_deceleration
+	# The handbrake locks only the rear wheels; the fronts keep pulling, so you
+	# can power through a slide.
+	var rear_locked := input.handbrake and not is_front
+	if rear_locked or is_zero_approx(input.throttle):
+		var deceleration := handbrake_deceleration if rear_locked else coast_deceleration
 		# Never push past zero within a tick, or the car jitters at rest.
 		var stopping := absf(wheel_speed) * mass_per_wheel / delta
 		return -signf(wheel_speed) * minf(deceleration * mass_per_wheel, stopping)
@@ -435,6 +463,29 @@ func _longitudinal_force(
 	var limit := max_speed if input.throttle > 0.0 else max_reverse_speed
 	var headroom := clampf(1.0 - pow(absf(car_speed) / limit, 2.0), 0.0, 1.0)
 	return input.throttle * engine_acceleration * mass_per_wheel * headroom
+
+
+## Drift state machine: the handbrake breaks the rear loose (with a yaw kick
+## into the turn); a slide held on throttle at a decent slip angle keeps it
+## loose; otherwise grip recovers. Very large slip angles get yaw damping so
+## a drift doesn't turn into a spin.
+func _update_drift(delta: float, speed: float, slip_angle: float, wheel_up: Vector3) -> void:
+	var moving := absf(speed) > 5.0
+	var powersliding := (
+		absf(slip_angle) > drift_hold_slip and input.throttle > 0.1 and absf(speed) > 6.0
+	)
+	if input.handbrake and moving:
+		_drift = 1.0
+		if not is_zero_approx(input.steer):
+			apply_torque(wheel_up * -input.steer * drift_kick * mass)
+	elif powersliding:
+		_drift = move_toward(_drift, drift_sustain_level, drift_recovery * delta)
+	else:
+		_drift = move_toward(_drift, 0.0, drift_recovery * delta)
+
+	if absf(slip_angle) > spin_out_slip:
+		var yaw_rate := angular_velocity.dot(wheel_up)
+		apply_torque(wheel_up * -yaw_rate * spin_damping * mass)
 
 
 func _tip_off_side() -> void:
@@ -471,7 +522,10 @@ func _update_wheels_visual_only(delta: float) -> void:
 	for i in WHEEL_COUNT:
 		var anchor := global_transform * _anchors[i]
 		var hit_distance := _probe_ground(anchor, wheel_up, ray_length)
-		var wheel_steer := steer_angle if i in FRONT_WHEELS else 0.0
+		var speed := net_velocity.dot(-global_basis.z)
+		var wheel_steer := (
+			steer_angle if i in FRONT_WHEELS else _rear_steer_angle(steer_angle, speed)
+		)
 		_place_wheel_visual(i, flip_sign, hit_distance - wheel_radius, wheel_steer, delta)
 
 
@@ -483,6 +537,12 @@ func _flip_sign() -> float:
 func _steer_angle(steer: float, speed: float) -> float:
 	var speed_ratio := clampf(absf(speed) / max_speed, 0.0, 1.0)
 	return -steer * lerpf(max_steer_angle, high_speed_steer_angle, speed_ratio)
+
+
+## Rear wheels counter-steer at low speed for tighter turns, barely at speed.
+func _rear_steer_angle(front_angle: float, speed: float) -> float:
+	var speed_ratio := clampf(absf(speed) / max_speed, 0.0, 1.0)
+	return -front_angle * lerpf(low_speed_rear_steer, high_speed_rear_steer, speed_ratio)
 
 
 ## Distance from the anchor to the ground along -wheel_up, or ray_length if
