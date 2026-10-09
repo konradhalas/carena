@@ -36,6 +36,7 @@ func _ready() -> void:
 		side_root.rotation.y = side * PI / 2
 		_generated.add_child(side_root)
 		_build_wall_cap(side_root, cap)
+	_soften_arena_walls()
 	_build_hall()
 	_build_floodlights()
 	_build_jumbotron()
@@ -47,7 +48,20 @@ func _hall_half_size() -> float:
 
 func _build_wall_cap(side_root: Node3D, cap: Material) -> void:
 	var size := Vector3(2.0 * field_half_size + wall_thickness, 0.3, wall_thickness + 0.1)
-	side_root.add_child(_box(size, Vector3(0, wall_height + 0.15, field_half_size), cap))
+	var mesh := MeshInstance3D.new()
+	mesh.mesh = MeshBuilder.chamfered_box(size, 0.1, cap)
+	mesh.position = Vector3(0, wall_height + 0.15, field_half_size)
+	side_root.add_child(mesh)
+
+
+## The arena walls are padded: give their meshes soft, rounded-off edges.
+## (Collision stays the plain box in the arena scene.)
+func _soften_arena_walls() -> void:
+	for wall in get_parent().get_children():
+		var mesh := wall.get_node_or_null("Mesh") as MeshInstance3D
+		if wall.name.begins_with("Wall") and mesh and mesh.mesh is BoxMesh:
+			var box := mesh.mesh as BoxMesh
+			mesh.mesh = MeshBuilder.chamfered_box(box.size, 0.45, box.material)
 
 
 ## Closed hall: concrete floor strips around the arena (not under it — the

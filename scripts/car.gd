@@ -20,6 +20,7 @@ signal destroyed
 
 const WHEEL_COUNT := 4
 const WRECK_COLOR := Color(0.07, 0.07, 0.07)
+const BODY_BEVEL := 0.12
 ## Each input packet also carries this many previous inputs, so a lost packet
 ## doesn't leave a gap in the server's input sequence.
 const INPUT_REDUNDANCY := 3
@@ -126,6 +127,9 @@ var _effects: CarEffects
 
 func _ready() -> void:
 	add_to_group("cars")
+	var box := _body_mesh.mesh as BoxMesh
+	if box:
+		_body_mesh.mesh = MeshBuilder.chamfered_box(box.size, BODY_BEVEL, box.material)
 	if DisplayServer.get_name() != "headless":
 		_effects = CarEffects.new()
 		add_child(_effects)

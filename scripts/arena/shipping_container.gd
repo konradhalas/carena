@@ -13,6 +13,9 @@ const CORRUGATED := preload("res://materials/container_corrugated.tres")
 
 
 func _ready() -> void:
+	var box := $Body.mesh as BoxMesh
+	if box:
+		$Body.mesh = MeshBuilder.chamfered_box(box.size, 0.05, box.material)
 	_apply_color()
 
 
