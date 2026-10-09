@@ -1,0 +1,23 @@
+[gd_resource type="StandardMaterial3D" load_steps=3 format=3]
+
+[sub_resource type="FastNoiseLite" id="Noise_wrinkles"]
+frequency = 0.03
+fractal_octaves = 3
+
+[sub_resource type="NoiseTexture2D" id="Texture_normal"]
+width = 512
+height = 512
+seamless = true
+as_normal_map = true
+bump_strength = 3.0
+noise = SubResource("Noise_wrinkles")
+
+[resource]
+albedo_color = Color(0.55, 0.06, 0.07, 1)
+roughness = 0.35
+normal_enabled = true
+normal_scale = 0.6
+normal_texture = SubResource("Texture_normal")
+uv1_scale = Vector3(0.15, 0.15, 0.15)
+uv1_triplanar = true
+uv1_world_triplanar = true

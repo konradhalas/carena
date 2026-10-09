@@ -1,0 +1,18 @@
+[gd_resource type="StandardMaterial3D" load_steps=3 format=3]
+
+[sub_resource type="Gradient" id="Gradient_ribs"]
+offsets = PackedFloat32Array(0, 0.2, 0.5, 0.7, 1)
+colors = PackedColorArray(0.82, 0.82, 0.82, 1, 1, 1, 1, 1, 0.82, 0.82, 0.82, 1, 0.55, 0.55, 0.55, 1, 0.82, 0.82, 0.82, 1)
+
+[sub_resource type="GradientTexture2D" id="Texture_ribs"]
+gradient = SubResource("Gradient_ribs")
+width = 64
+height = 4
+
+[resource]
+albedo_color = Color(0.6, 0.16, 0.1, 1)
+albedo_texture = SubResource("Texture_ribs")
+metallic = 0.4
+roughness = 0.6
+uv1_scale = Vector3(3.3, 3.3, 3.3)
+uv1_triplanar = true
