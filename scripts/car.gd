@@ -23,6 +23,19 @@ signal damaged(amount: float)
 const WHEEL_COUNT := 4
 const WRECK_COLOR := Color(0.07, 0.07, 0.07)
 const BODY_BEVEL := 0.12
+const PAINT := preload("res://materials/car_paint.tres")
+## Liveries as [base, stripes, accent]; each car picks one from its name.
+const LIVERIES: Array[Array] = [
+	[Color(0.75, 0.08, 0.06), Color(0.92, 0.92, 0.9), Color(0.05, 0.05, 0.06)],
+	[Color(0.06, 0.2, 0.6), Color(0.92, 0.92, 0.9), Color(0.95, 0.45, 0.05)],
+	[Color(0.95, 0.68, 0.05), Color(0.05, 0.05, 0.06), Color(0.05, 0.05, 0.06)],
+	[Color(0.08, 0.42, 0.2), Color(0.92, 0.92, 0.9), Color(0.05, 0.05, 0.06)],
+	[Color(0.95, 0.36, 0.04), Color(0.05, 0.05, 0.06), Color(0.92, 0.92, 0.9)],
+	[Color(0.35, 0.1, 0.55), Color(0.95, 0.8, 0.1), Color(0.05, 0.05, 0.06)],
+	[Color(0.86, 0.86, 0.85), Color(0.75, 0.06, 0.05), Color(0.05, 0.05, 0.06)],
+	[Color(0.05, 0.05, 0.06), Color(0.5, 0.95, 0.1), Color(0.5, 0.95, 0.1)],
+	[Color(0.0, 0.48, 0.52), Color(0.92, 0.92, 0.9), Color(0.05, 0.05, 0.06)],
+]
 ## Each input packet also carries this many previous inputs, so a lost packet
 ## doesn't leave a gap in the server's input sequence.
 const INPUT_REDUNDANCY := 3
@@ -120,6 +133,7 @@ var _respawn_requested := false
 var _bot: BotDriver
 var _effects: CarEffects
 var _suspension: CarSuspension
+var _paint: ShaderMaterial
 
 @onready var _wheel_pivots: Array[Node3D] = [
 	$Visual/WheelFL, $Visual/WheelFR, $Visual/WheelRL, $Visual/WheelRR
@@ -138,6 +152,7 @@ func _ready() -> void:
 	var box := _body_mesh.mesh as BoxMesh
 	if box:
 		_body_mesh.mesh = MeshBuilder.chamfered_box(box.size, BODY_BEVEL, box.material)
+	_apply_livery()
 	if DisplayServer.get_name() != "headless":
 		_effects = CarEffects.new()
 		add_child(_effects)
@@ -300,6 +315,18 @@ func _update_respawn(delta: float) -> void:
 		is_destroyed = false
 
 
+## Picks this car's colours from its name (the peer id in a match), so every
+## peer paints it the same without sending anything over the network.
+func _apply_livery() -> void:
+	var livery: Array = LIVERIES[absi(String(name).hash()) % LIVERIES.size()]
+	_paint = PAINT.duplicate() as ShaderMaterial
+	_paint.set_shader_parameter("base_color", livery[0])
+	_paint.set_shader_parameter("stripe_color", livery[1])
+	_paint.set_shader_parameter("accent_color", livery[2])
+	if not is_destroyed:
+		_body_mesh.material_override = _paint
+
+
 func _show_destroyed_state() -> void:
 	if not is_inside_tree():
 		return
@@ -310,7 +337,7 @@ func _show_destroyed_state() -> void:
 		_body_mesh.material_override = wreck
 		Effects.explosion(get_parent(), global_position)
 	else:
-		_body_mesh.material_override = null
+		_body_mesh.material_override = _paint
 
 
 func _simulate(delta: float) -> void:

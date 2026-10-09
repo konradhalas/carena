@@ -1,0 +1,19 @@
+[gd_resource type="ShaderMaterial" load_steps=4 format=3]
+
+[ext_resource type="Shader" path="res://shaders/car_paint.gdshader" id="1_paint"]
+
+[sub_resource type="FastNoiseLite" id="Noise_wear"]
+noise_type = 2
+frequency = 0.08
+fractal_octaves = 4
+cellular_return_type = 2
+
+[sub_resource type="NoiseTexture2D" id="Texture_wear"]
+width = 256
+height = 256
+seamless = true
+noise = SubResource("Noise_wear")
+
+[resource]
+shader = ExtResource("1_paint")
+shader_parameter/wear_noise = SubResource("Texture_wear")
