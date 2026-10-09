@@ -38,6 +38,26 @@ static func impact(parent: Node, position: Vector3, normal: Vector3) -> void:
 	_one_shot(parent, position, normal, _spark_material, _spark_mesh, 14, 0.6)
 
 
+## Cannon shell hit: fireball, a spray of sparks and a puff of smoke.
+static func shell_impact(parent: Node, position: Vector3, normal: Vector3) -> void:
+	if not _can_spawn(parent):
+		return
+	_burst(parent, position, 1.6, FIRE_COLOR, 0.35, 8.0)
+	if _spark_material == null:
+		_build_sparks()
+	if _smoke_material == null:
+		_build_smoke()
+	_one_shot(parent, position, normal, _spark_material, _spark_mesh, 26, 0.7)
+	_one_shot(parent, position, normal, _smoke_material, _smoke_mesh, 6, 1.6)
+
+
+## Pickup collected: a quick coloured flash.
+static func pickup_flash(parent: Node, position: Vector3, color: Color) -> void:
+	if not _can_spawn(parent):
+		return
+	_burst(parent, position, 2.2, color, 0.3, 5.0)
+
+
 ## Gun firing: a brief elongated flash pointing along `direction`, plus light.
 static func muzzle_flash(parent: Node, position: Vector3, direction: Vector3) -> void:
 	if not _can_spawn(parent):
@@ -47,8 +67,8 @@ static func muzzle_flash(parent: Node, position: Vector3, direction: Vector3) ->
 	root.look_at(position + direction, up)
 	root.reset_physics_interpolation()
 	var flash := SphereMesh.new()
-	flash.radius = 0.18
-	flash.height = 0.36
+	flash.radius = 0.32
+	flash.height = 0.64
 	var material := glow_material(Color(1.0, 0.85, 0.5), 8.0)
 	flash.material = material
 	var mesh := MeshInstance3D.new()
@@ -59,12 +79,12 @@ static func muzzle_flash(parent: Node, position: Vector3, direction: Vector3) ->
 	root.add_child(mesh)
 	var omni := OmniLight3D.new()
 	omni.light_color = Color(1.0, 0.75, 0.4)
-	omni.light_energy = 3.0
-	omni.omni_range = 5.0
+	omni.light_energy = 6.0
+	omni.omni_range = 8.0
 	root.add_child(omni)
 	var tween := root.create_tween().set_parallel()
-	tween.tween_property(material, "albedo_color:a", 0.0, 0.06)
-	tween.tween_property(omni, "light_energy", 0.0, 0.06)
+	tween.tween_property(material, "albedo_color:a", 0.0, 0.1)
+	tween.tween_property(omni, "light_energy", 0.0, 0.1)
 	tween.chain().tween_callback(root.queue_free)
 
 

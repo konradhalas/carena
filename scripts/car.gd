@@ -20,6 +20,8 @@ extends RigidBody3D
 signal destroyed(killer_peer_id: int)
 ## Health went down (on every peer, as health replicates). Used for feedback.
 signal damaged(amount: float)
+## This car's cannon fired (on every peer, from the shot RPC). Used for feedback.
+signal weapon_fired
 
 const WHEEL_COUNT := 4
 const WRECK_COLOR := Color(0.07, 0.07, 0.07)
@@ -111,7 +113,9 @@ const FRONT_WHEELS: Array[int] = [0, 1]
 
 @export_group("Combat")
 @export var max_health := 100.0
-@export var fire_interval := 0.14  ## seconds between shots
+@export var fire_interval := 0.45  ## seconds between shots (heavy cannon)
+@export var max_ammo := 12
+@export var recoil := 1.2  ## m/s the car is pushed back per shot
 @export var respawn_delay := 3.0
 @export var explosion_impulse := 7.0  ## upward kick on destruction, m/s
 ## Seconds of invulnerability after (re)spawning; matches set it, sandbox leaves it off.
@@ -144,6 +148,7 @@ var health := max_health:
 		if lost > 0.0:
 			damaged.emit(lost)
 var kills := 0
+var ammo := max_ammo
 var is_destroyed := false:
 	set(value):
 		if value == is_destroyed:
@@ -184,6 +189,7 @@ var _effects: CarEffects
 var _suspension: CarSuspension
 var _audio: CarAudio
 var _wheels_touching := 0  ## counted by the wheel visuals each tick
+var _click_cooldown := 0.0
 var _protected_time := 0.0  ## runs on every peer: server for damage, all for the blink
 var _nameplate: Label3D
 var _paint: ShaderMaterial
@@ -221,6 +227,7 @@ func _ready() -> void:
 	_wheelbase = absf(_anchors[0].z - _anchors[2].z)
 	net_transform = global_transform
 	health = max_health
+	ammo = max_ammo
 	if spawn_transform == Transform3D():
 		spawn_transform = global_transform
 	if not multiplayer.is_server():
@@ -258,6 +265,7 @@ func _physics_process(delta: float) -> void:
 		)
 		_suspension.update(delta, velocity, global_basis)
 		_update_audio(delta, velocity)
+		_update_empty_click(delta)
 
 
 func _server_tick(delta: float) -> void:
@@ -369,12 +377,40 @@ func apply_damage(amount: float, attacker_peer_id := 0) -> bool:
 
 func _update_weapon(delta: float) -> void:
 	_fire_cooldown -= delta
-	if not input.fire or _fire_cooldown > 0.0:
+	if not input.fire or _fire_cooldown > 0.0 or ammo <= 0:
 		return
 	var projectiles := get_tree().get_first_node_in_group("projectiles") as Projectiles
 	if projectiles:
 		_fire_cooldown = fire_interval
-		projectiles.fire(self, _muzzle.global_position, -global_basis.z)
+		ammo -= 1
+		var forward := -global_basis.z
+		projectiles.fire(self, _muzzle.global_position, forward)
+		apply_central_impulse(-forward * recoil * mass)
+
+
+## Server only. Returns false (pickup stays) when already at full health.
+func repair(amount: float) -> bool:
+	if is_destroyed or health >= max_health:
+		return false
+	health = minf(health + amount, max_health)
+	return true
+
+
+## Server only. Returns false (pickup stays) when the magazine is full.
+func add_ammo(amount: int) -> bool:
+	if is_destroyed or ammo >= max_ammo:
+		return false
+	ammo = mini(ammo + amount, max_ammo)
+	return true
+
+
+## Dry-fire feedback for the local player: a click when the trigger is pulled
+## on an empty magazine (ammo replicates, so clients know).
+func _update_empty_click(delta: float) -> void:
+	_click_cooldown -= delta
+	if is_locally_controlled and input.fire and ammo <= 0 and _click_cooldown <= 0.0:
+		_click_cooldown = fire_interval
+		Sfx.play_at(_effects_root(), "empty_click", _muzzle.global_position, -4.0, 0.0)
 
 
 func _update_respawn(delta: float) -> void:
@@ -382,6 +418,7 @@ func _update_respawn(delta: float) -> void:
 	if _respawn_timer <= 0.0:
 		_respawn_requested = true
 		health = max_health
+		ammo = max_ammo
 		is_destroyed = false
 
 
@@ -434,6 +471,7 @@ func _effects_root() -> Node:
 func respawn_now() -> void:
 	_respawn_timer = 0.0
 	health = max_health
+	ammo = max_ammo
 	is_destroyed = false
 	_respawn_requested = true
 

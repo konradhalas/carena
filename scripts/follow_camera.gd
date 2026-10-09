@@ -7,11 +7,13 @@ extends Camera3D
 	set(value):
 		if target and target.has_signal("damaged"):
 			target.damaged.disconnect(_on_target_damaged)
+			target.weapon_fired.disconnect(_on_target_fired)
 		target = value
 		_snap_pending = true
 		_previous_velocity = Vector3.ZERO
 		if target and target.has_signal("damaged"):
 			target.damaged.connect(_on_target_damaged)
+			target.weapon_fired.connect(_on_target_fired)
 @export var offset := Vector3(0.0, 5.0, 10.0)
 @export var look_height := 1.5
 @export var follow_speed := 6.0
@@ -28,6 +30,7 @@ extends Camera3D
 @export var shake_accel_threshold := 120.0
 @export var trauma_per_accel := 0.0015
 @export var trauma_per_damage := 0.01
+@export var trauma_per_shot := 0.22
 
 var _heading := Vector3.FORWARD
 var _snap_pending := true
@@ -96,3 +99,7 @@ func _desired_position() -> Vector3:
 	if heading.length_squared() > 0.01:
 		_heading = heading.normalized()
 	return target.global_position + Basis.looking_at(_heading) * offset
+
+
+func _on_target_fired() -> void:
+	add_trauma(trauma_per_shot)

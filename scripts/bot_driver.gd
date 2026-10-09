@@ -1,7 +1,8 @@
 class_name BotDriver
 extends RefCounted
 ## Minimal auto-driver: chases the nearest living car and shoots when it is
-## lined up; backs out when stuck. Used for unattended clients (--bot) in
+## lined up; heads for a pickup when out of ammo or badly hurt; backs out
+## when stuck. Used for unattended clients (--bot) in
 ## smoke and load tests, and a starting point for AI opponents.
 
 const AIM_TOLERANCE := 0.12  ## rad either side of dead ahead to open fire
@@ -29,7 +30,8 @@ func drive(car: Car, delta: float) -> CarInput:
 		_reverse_time = REVERSE_TIME
 
 	input.throttle = 1.0
-	var target := _nearest_enemy(car)
+	var pickup := _wanted_pickup(car)
+	var target: Node3D = pickup if pickup else _nearest_enemy(car)
 	if target == null:
 		return input
 
@@ -41,11 +43,35 @@ func drive(car: Car, delta: float) -> CarInput:
 	to_target.y = 0.0
 	var angle := forward.signed_angle_to(to_target, Vector3.DOWN)  # > 0: target on the right
 	input.steer = clampf(angle * 2.0, -1.0, 1.0)
-	input.fire = absf(angle) < AIM_TOLERANCE and to_target.length() < FIRE_RANGE
-	if to_target.length() < 10.0:
+	input.fire = (
+		pickup == null and absf(angle) < AIM_TOLERANCE and to_target.length() < FIRE_RANGE
+	)
+	if pickup == null and to_target.length() < 10.0:
 		input.throttle = 0.4
 	_last_steer = input.steer
 	return input
+
+
+## A pickup worth driving to (out of ammo, or under 40% health), or null.
+func _wanted_pickup(car: Car) -> Pickup:
+	var kind := -1
+	if car.ammo == 0:
+		kind = Pickup.Kind.AMMO
+	elif car.health < car.max_health * 0.4:
+		kind = Pickup.Kind.REPAIR
+	if kind < 0:
+		return null
+	var best: Pickup = null
+	var best_distance := INF
+	for node in car.get_tree().get_nodes_in_group("pickups"):
+		var pickup := node as Pickup
+		if pickup.kind != kind or not pickup.active:
+			continue
+		var distance := car.global_position.distance_squared_to(pickup.global_position)
+		if distance < best_distance:
+			best = pickup
+			best_distance = distance
+	return best
 
 
 func _nearest_enemy(car: Car) -> Car:

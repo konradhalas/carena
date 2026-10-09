@@ -86,6 +86,9 @@ properties/7/replication_mode = 1
 properties/8/path = NodePath(".:net_input_seq")
 properties/8/spawn = false
 properties/8/replication_mode = 1
+properties/9/path = NodePath(".:ammo")
+properties/9/spawn = true
+properties/9/replication_mode = 2
 
 [node name="Car" type="RigidBody3D"]
 mass = 1000.0

@@ -1,0 +1,14 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/match/pickup.gd" id="1_pickup"]
+
+[sub_resource type="SceneReplicationConfig" id="PickupRepl"]
+properties/0/path = NodePath(".:active")
+properties/0/spawn = true
+properties/0/replication_mode = 2
+
+[node name="Pickup" type="Node3D"]
+script = ExtResource("1_pickup")
+
+[node name="Sync" type="MultiplayerSynchronizer" parent="."]
+replication_config = SubResource("PickupRepl")

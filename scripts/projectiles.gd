@@ -4,14 +4,18 @@ extends Node3D
 ##
 ## The server simulates projectiles as plain data (ray segment per tick) and
 ## alone decides hits and damage. Every peer gets a "shot fired" RPC and
-## animates a purely visual tracer along the same line; tracers stop on
+## animates a purely visual shell along the same arc; shells stop on
 ## whatever they hit locally, which is close enough for visuals.
+##
+## The weapon is a slow, heavy cannon: few hits kill, shells are visible in
+## flight and drop slightly, and every hit shoves the target hard.
 
-@export var speed := 90.0
-@export var lifetime := 1.2
-@export var damage := 8.0
-@export var hit_impulse := 400.0  ## N·s pushed into the hit car
-@export var tracer_length := 1.6
+@export var speed := 60.0
+@export var lifetime := 1.6
+@export var damage := 25.0
+@export var gravity := Vector3(0, -4.0, 0)  ## shells arc a little
+@export var hit_impulse := 2200.0  ## N·s pushed into the hit car
+@export var trail_length := 2.6
 
 var _shots: Array[Shot] = []  # server only
 var _tracers: Array[Tracer] = []  # every peer with a display
@@ -53,6 +57,7 @@ func _physics_process(delta: float) -> void:
 func _step_shots(delta: float) -> void:
 	for i in range(_shots.size() - 1, -1, -1):
 		var shot := _shots[i]
+		shot.velocity += gravity * delta
 		var next := shot.position + shot.velocity * delta
 		var exclude: Array[RID] = []
 		if is_instance_valid(shot.shooter):
@@ -77,15 +82,17 @@ func _step_shots(delta: float) -> void:
 
 @rpc("authority", "call_local", "unreliable")
 func _show_tracer(origin: Vector3, velocity: Vector3, shooter_path: NodePath) -> void:
+	var shooter := get_node_or_null(shooter_path) as Car
+	if shooter:
+		shooter.weapon_fired.emit()
 	if _is_headless:
 		return
 	Effects.muzzle_flash(self, origin, velocity)
-	Sfx.play_at(self, "gunshot", origin, -6.0, 0.06)
+	Sfx.play_at(self, "cannon", origin, -2.0, 0.05)
 	var tracer := Tracer.new()
 	tracer.node = _make_tracer_mesh()
 	tracer.velocity = velocity
 	tracer.time_left = lifetime
-	var shooter := get_node_or_null(shooter_path) as CollisionObject3D
 	if shooter:
 		tracer.exclude.append(shooter.get_rid())
 	add_child(tracer.node)
@@ -98,17 +105,19 @@ func _show_tracer(origin: Vector3, velocity: Vector3, shooter_path: NodePath) ->
 func _step_tracers(delta: float) -> void:
 	for i in range(_tracers.size() - 1, -1, -1):
 		var tracer := _tracers[i]
+		tracer.velocity += gravity * delta
 		var from := tracer.node.global_position
 		var to := from + tracer.velocity * delta
 		var hit := _cast(from, to, tracer.exclude)
 		tracer.time_left -= delta
 		if hit.is_empty() and tracer.time_left > 0.0:
 			tracer.node.global_position = to
+			_orient(tracer.node, tracer.velocity)
 			continue
 		if not hit.is_empty():
-			Effects.impact(self, hit.position, hit.normal)
+			Effects.shell_impact(self, hit.position, hit.normal)
 			var sound := "impact_metal" if hit.collider is Car else "impact_dirt"
-			Sfx.play_at(self, sound, hit.position, -4.0)
+			Sfx.play_at(self, sound, hit.position, 0.0, 0.1)
 		tracer.node.queue_free()
 		_tracers.remove_at(i)
 
@@ -118,18 +127,40 @@ func _cast(from: Vector3, to: Vector3, exclude: Array[RID]) -> Dictionary:
 	return get_world_3d().direct_space_state.intersect_ray(query)
 
 
+## A glowing shell: hot core, a fading trail behind it (+Z, since the node's
+## -Z points along travel) and a small light so it lights up what it passes.
 func _make_tracer_mesh() -> Node3D:
-	var mesh := CapsuleMesh.new()
-	mesh.radius = 0.07
-	mesh.height = tracer_length
-	mesh.material = Effects.glow_material(Color(1.0, 0.85, 0.3), 6.0)
-	var instance := MeshInstance3D.new()
-	instance.mesh = mesh
-	instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	# Capsule's long axis is Y; pivot it so the node's -Z points along travel.
-	instance.rotation.x = PI / 2
 	var root := Node3D.new()
-	root.add_child(instance)
+
+	var core_mesh := SphereMesh.new()
+	core_mesh.radius = 0.15
+	core_mesh.height = 0.3
+	core_mesh.material = Effects.glow_material(Color(1.0, 0.72, 0.35), 12.0)
+	var core := MeshInstance3D.new()
+	core.mesh = core_mesh
+	core.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	root.add_child(core)
+
+	var trail_mesh := CylinderMesh.new()
+	trail_mesh.top_radius = 0.0
+	trail_mesh.bottom_radius = 0.16
+	trail_mesh.height = trail_length
+	var trail_material := Effects.glow_material(Color(1.0, 0.5, 0.12, 0.6), 5.0)
+	trail_material.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	trail_mesh.material = trail_material
+	var trail := MeshInstance3D.new()
+	trail.mesh = trail_mesh
+	trail.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	# Cylinder axis is Y (wide end at -Y); lay it along +Z, wide end at the core.
+	trail.rotation.x = -PI / 2
+	trail.position.z = trail_length * 0.5
+	root.add_child(trail)
+
+	var light := OmniLight3D.new()
+	light.light_color = Color(1.0, 0.6, 0.25)
+	light.light_energy = 2.0
+	light.omni_range = 5.0
+	root.add_child(light)
 	return root
 
 

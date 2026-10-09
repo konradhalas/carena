@@ -88,14 +88,38 @@ def skid_loop() -> np.ndarray:
     return normalise(scrub * flutter, 0.7)
 
 
-def gunshot() -> np.ndarray:
-    """Short punchy shot: noise crack, falling low thump, short tail."""
-    t = timeline(0.35)
-    crack = band_noise(t.size, 800, 9000) * np.exp(-t / 0.012)
-    sweep = 2 * np.pi * np.cumsum(110 * np.exp(-t / 0.05) + 45) / RATE
-    thump = np.sin(sweep) * np.exp(-t / 0.07)
-    tail = lowpass(band_noise(t.size, 100, 3000), 1200) * np.exp(-t / 0.09) * 0.4
-    return fade(normalise(np.tanh(2.5 * (crack * 0.8 + thump + tail))), 0.0005, 0.03)
+def cannon() -> np.ndarray:
+    """Heavy cannon: deep boom with a sharp blast on top and a metallic
+    clank of the breech, longer tail than the old gunshot."""
+    t = timeline(0.9)
+    blast = band_noise(t.size, 300, 7000, tilt=-0.6) * np.exp(-t / 0.025)
+    sweep = 2 * np.pi * np.cumsum(90 * np.exp(-t / 0.08) + 32) / RATE
+    boom = np.sin(sweep) * np.exp(-t / 0.22)
+    tail = lowpass(band_noise(t.size, 40, 2500, tilt=-1.0), 500) * np.exp(-t / 0.3) * 0.5
+    clank_t = np.clip(t - 0.12, 0, None)
+    clank = sum(np.sin(2 * np.pi * f * clank_t) * np.exp(-clank_t / 0.05) for f in (820, 1310, 1975))
+    clank *= (t > 0.12) * 0.15
+    mix = np.tanh(2.2 * (blast * 0.9 + boom * 1.3 + tail)) + clank
+    return fade(normalise(mix, 0.95), 0.0005, 0.1)
+
+
+def empty_click() -> np.ndarray:
+    """Dry trigger click when the magazine is empty."""
+    t = timeline(0.12)
+    click = band_noise(t.size, 1500, 9000) * np.exp(-t / 0.006)
+    knock = np.sin(2 * np.pi * 420 * t) * np.exp(-t / 0.02) * 0.4
+    return fade(normalise(click + knock, 0.6), 0.0005, 0.02)
+
+
+def pickup() -> np.ndarray:
+    """Collecting a pickup: bright rising two-note chime."""
+    t = timeline(0.5)
+    note = lambda f, start: (
+        np.sin(2 * np.pi * f * np.clip(t - start, 0, None))
+        * (t >= start) * np.exp(-np.clip(t - start, 0, None) / 0.18)
+    )
+    chime = note(880, 0.0) + note(1318.5, 0.09) + 0.3 * note(2637, 0.09)
+    return fade(normalise(chime, 0.7), 0.002, 0.05)
 
 
 def impact_metal() -> np.ndarray:
@@ -141,7 +165,9 @@ def explosion() -> np.ndarray:
 def main() -> None:
     write("engine_loop", engine_loop())
     write("skid_loop", skid_loop())
-    write("gunshot", gunshot())
+    write("cannon", cannon())
+    write("empty_click", empty_click())
+    write("pickup", pickup())
     write("impact_metal", impact_metal())
     write("impact_dirt", impact_dirt())
     write("landing", landing())

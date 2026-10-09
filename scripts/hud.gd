@@ -23,6 +23,7 @@ var match_state: MatchState:
 
 var _flash_tween: Tween
 var _clock: Label
+var _ammo: Label
 var _feed: VBoxContainer
 var _board: PanelContainer
 var _board_title: Label
@@ -36,6 +37,10 @@ var _board_grid: GridContainer
 
 func _ready() -> void:
 	_build_match_ui()
+	_ammo = Label.new()
+	_style(_ammo, 22)
+	%Kills.get_parent().add_child(_ammo)
+	%Kills.get_parent().move_child(_ammo, 0)
 
 
 func _process(_delta: float) -> void:
@@ -45,8 +50,11 @@ func _process(_delta: float) -> void:
 		node.visible = has_car and (node != %Destroyed or car.is_destroyed)
 	if _board.visible:
 		%Destroyed.visible = false  # the scoreboard covers the same spot
+	_ammo.visible = has_car
 	if not has_car:
 		return
+	_ammo.text = "Ammo  %d / %d" % [car.ammo, car.max_ammo]
+	_ammo.modulate = Color(1, 0.35, 0.3) if car.ammo == 0 else Color.WHITE
 	_health_bar.max_value = car.max_health
 	_health_bar.value = car.health
 	_kills.text = "Kills: %d" % car.kills

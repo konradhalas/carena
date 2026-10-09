@@ -1,10 +1,11 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=10 format=3]
 
 [ext_resource type="Script" path="res://scripts/arena/arena_terrain.gd" id="1_terrain"]
 [ext_resource type="Material" path="res://materials/padding.tres" id="2_padding"]
 [ext_resource type="PackedScene" path="res://scenes/shipping_container.tscn" id="3_container"]
 [ext_resource type="Script" path="res://scripts/arena/arena_dressing.gd" id="4_dressing"]
 [ext_resource type="Script" path="res://scripts/effects/tire_tracks.gd" id="5_tracks"]
+[ext_resource type="PackedScene" path="res://scenes/pickup.tscn" id="6_pickup"]
 
 [sub_resource type="BoxMesh" id="BoxMesh_wall"]
 material = ExtResource("2_padding")
@@ -152,3 +153,34 @@ color = Color(0.9, 0.75, 0.15, 1)
 [node name="Container3" parent="TowerSW" instance=ExtResource("3_container")]
 transform = Transform3D(0.9988, 0, 0.04998, 0, 1, 0, -0.04998, 0, 0.9988, 0, 5.18, 0)
 color = Color(0.88, 0.88, 0.86, 1)
+
+[node name="Pickups" type="Node3D" parent="."]
+
+[node name="RepairNE" parent="Pickups" instance=ExtResource("6_pickup")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 40, 0, 30)
+kind = 0
+
+[node name="RepairSW" parent="Pickups" instance=ExtResource("6_pickup")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -38, 0, -40)
+kind = 0
+
+[node name="RepairS" parent="Pickups" instance=ExtResource("6_pickup")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 42)
+kind = 0
+
+[node name="AmmoW" parent="Pickups" instance=ExtResource("6_pickup")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -40, 0, 4)
+kind = 1
+
+[node name="AmmoSE" parent="Pickups" instance=ExtResource("6_pickup")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 40, 0, -40)
+kind = 1
+
+[node name="AmmoN" parent="Pickups" instance=ExtResource("6_pickup")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -42)
+kind = 1
+
+[node name="AmmoE" parent="Pickups" instance=ExtResource("6_pickup")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 30, 0, 0)
+kind = 1
+

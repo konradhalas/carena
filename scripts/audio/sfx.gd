@@ -5,7 +5,9 @@ extends RefCounted
 
 const BUS := &"World"
 const SOUNDS := {
-	"gunshot": preload("res://assets/audio/gunshot.wav"),
+	"cannon": preload("res://assets/audio/cannon.wav"),
+	"empty_click": preload("res://assets/audio/empty_click.wav"),
+	"pickup": preload("res://assets/audio/pickup.wav"),
 	"impact_metal": preload("res://assets/audio/impact_metal.wav"),
 	"impact_dirt": preload("res://assets/audio/impact_dirt.wav"),
 	"landing": preload("res://assets/audio/landing.wav"),

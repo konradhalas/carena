@@ -127,7 +127,10 @@ func _log_state() -> void:
 	for car: Car in _cars():
 		var p := car.global_position
 		cars.append(
-			"%s(%.1f, %.1f, %.1f hp=%d kills=%d)" % [car.name, p.x, p.y, p.z, car.health, car.kills]
+			(
+				"%s(%.1f, %.1f, %.1f hp=%d ammo=%d kills=%d)"
+				% [car.name, p.x, p.y, p.z, car.health, car.ammo, car.kills]
+			)
 		)
 	print("[peer %d] %s" % [multiplayer.get_unique_id(), ", ".join(cars)])
 	var board: Array[String] = []
