@@ -70,6 +70,19 @@ func test_destroyed_car_cannot_shoot() -> void:
 	assert_float(_target.health).is_equal(_target.max_health)
 
 
+func test_cannon_stays_level_when_the_body_pitches_nose_down() -> void:
+	# Hard acceleration/braking pitches the body; the stabilised cannon must
+	# still fire parallel to the ground, not into the dirt in front.
+	_car.global_transform = Transform3D(Basis(Vector3.RIGHT, -0.25), Vector3(12, 1.2, 26))
+	_car.linear_velocity = Vector3.ZERO
+	_car.angular_velocity = Vector3.ZERO
+	_car.ammo = 1
+	_car.input.fire = true
+	await _step(seconds(1))
+
+	assert_float(_target.health).is_less(_target.max_health)
+
+
 func test_four_hits_destroy_a_car() -> void:
 	var projectiles: Projectiles = _runner.scene().get_node("Projectiles")
 	for i in 3:

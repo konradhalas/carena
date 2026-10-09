@@ -116,6 +116,10 @@ const FRONT_WHEELS: Array[int] = [0, 1]
 @export var fire_interval := 0.45  ## seconds between shots (heavy cannon)
 @export var max_ammo := 12
 @export var recoil := 1.2  ## m/s the car is pushed back per shot
+## Gyro-stabilised cannon: barrel pitch follows the body's pitch only slowly
+## (a low-pass filter), so quick squat/dive and bumps are ignored while a
+## sustained slope — climbing a mound — is followed. Rate in 1/s.
+@export var aim_stabiliser_rate := 1.5
 @export var respawn_delay := 3.0
 @export var explosion_impulse := 7.0  ## upward kick on destruction, m/s
 ## Seconds of invulnerability after (re)spawning; matches set it, sandbox leaves it off.
@@ -190,6 +194,7 @@ var _suspension: CarSuspension
 var _audio: CarAudio
 var _wheels_touching := 0  ## counted by the wheel visuals each tick
 var _click_cooldown := 0.0
+var _aim_pitch := 0.0  ## stabilised barrel elevation, rad
 var _protected_time := 0.0  ## runs on every peer: server for damage, all for the blink
 var _nameplate: Label3D
 var _paint: ShaderMaterial
@@ -228,6 +233,7 @@ func _ready() -> void:
 	net_transform = global_transform
 	health = max_health
 	ammo = max_ammo
+	_aim_pitch = _body_pitch()
 	if spawn_transform == Transform3D():
 		spawn_transform = global_transform
 	if not multiplayer.is_server():
@@ -284,6 +290,7 @@ func _server_tick(delta: float) -> void:
 	if is_destroyed:
 		input = CarInput.new()  # wrecks don't drive or shoot
 		_update_respawn(delta)
+	_update_aim_reference(delta)
 	_update_weapon(delta)
 	_simulate(delta)
 	net_steer = input.steer
@@ -384,8 +391,29 @@ func _update_weapon(delta: float) -> void:
 		_fire_cooldown = fire_interval
 		ammo -= 1
 		var forward := -global_basis.z
-		projectiles.fire(self, _muzzle.global_position, forward)
+		projectiles.fire(self, _muzzle.global_position, aim_direction())
 		apply_central_impulse(-forward * recoil * mass)
+
+
+## Where the cannon points: the car's heading at the stabilised elevation,
+## independent of quick body pitch and of roll.
+func aim_direction() -> Vector3:
+	var heading := -global_basis.z
+	heading.y = 0.0
+	if heading.length_squared() < 0.0001:
+		return -global_basis.z  # nose straight up/down: nothing to level to
+	heading = heading.normalized()
+	return (heading * cos(_aim_pitch) + Vector3.UP * sin(_aim_pitch)).normalized()
+
+
+func _body_pitch() -> float:
+	return asin(clampf(-global_basis.z.y, -1.0, 1.0))
+
+
+## Server only: the barrel elevation chases the body pitch slowly, like a gyro.
+func _update_aim_reference(delta: float) -> void:
+	var weight := clampf(aim_stabiliser_rate * delta, 0.0, 1.0)
+	_aim_pitch = lerpf(_aim_pitch, _body_pitch(), weight)
 
 
 ## Server only. Returns false (pickup stays) when already at full health.
