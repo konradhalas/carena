@@ -17,6 +17,8 @@ extends RigidBody3D
 ## the server, so the same code runs unchanged.
 
 signal destroyed
+## Health went down (on every peer, as health replicates). Used for feedback.
+signal damaged(amount: float)
 
 const WHEEL_COUNT := 4
 const WRECK_COLOR := Color(0.07, 0.07, 0.07)
@@ -84,7 +86,12 @@ var net_angular_velocity := Vector3.ZERO
 var net_steer := 0.0
 var net_tick := 0  ## server physics tick the net_* state belongs to
 var net_input_seq := 0  ## last owner input the server had applied in that state
-var health := max_health
+var health := max_health:
+	set(value):
+		var lost := health - value
+		health = value
+		if lost > 0.0:
+			damaged.emit(lost)
 var kills := 0
 var is_destroyed := false:
 	set(value):

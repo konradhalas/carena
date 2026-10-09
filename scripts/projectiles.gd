@@ -78,6 +78,7 @@ func _step_shots(delta: float) -> void:
 func _show_tracer(origin: Vector3, velocity: Vector3, shooter_path: NodePath) -> void:
 	if _is_headless:
 		return
+	Effects.muzzle_flash(self, origin, velocity)
 	var tracer := Tracer.new()
 	tracer.node = _make_tracer_mesh()
 	tracer.velocity = velocity
@@ -103,7 +104,7 @@ func _step_tracers(delta: float) -> void:
 			tracer.node.global_position = to
 			continue
 		if not hit.is_empty():
-			Effects.spark(self, hit.position)
+			Effects.impact(self, hit.position, hit.normal)
 		tracer.node.queue_free()
 		_tracers.remove_at(i)
 
