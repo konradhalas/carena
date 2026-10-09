@@ -18,13 +18,19 @@ Multiplayer 3D car arena combat game (shooting + traps) in Godot 4.7, GDScript.
   - Server spawns one car per peer via `PlayerSpawner` (`spawn_function` runs on every peer); car node name = peer id.
   - Car: server simulates; owning client sends input via unreliable RPC (`_submit_input`, sender validated against `owner_peer_id`), reset via reliable RPC. State replicated through the car's `Sync` node (`net_transform`, `net_velocity`, `net_steer`, ~30 Hz); clients keep cars frozen (kinematic) and smooth towards that state with short extrapolation. No client-side prediction yet → own car reacts with ~RTT delay.
   - Offline, Godot's default OfflineMultiplayerPeer makes the local peer the server, so the same car code runs unchanged in sandbox/tests.
+- **Combat** (`scripts/projectiles.gd`, `scripts/effects.gd`, combat section of `scripts/car.gd`):
+  - Weapon fires from the `Muzzle` marker on the front bumper at axle height — the car's centre of symmetry — along the car's forward axis, so it works identically on wheels or roof. Keep any future weapon/trap attachment points symmetric for the same reason.
+  - Server simulates projectiles as data (ray segment per tick) and alone applies damage (`Car.apply_damage`) and kill credit. Clients get an unreliable "shot fired" RPC and animate visual-only tracers.
+  - `health`, `kills`, `is_destroyed` replicate on change; `is_destroyed` setter drives wreck visuals/explosion on every peer. Wrecks ignore input and respawn at `spawn_transform` after `respawn_delay`.
+  - `Effects` are visual only and no-op on headless servers — never put gameplay logic in them.
+  - `--bot` uses `BotDriver` (chase nearest car, shoot when lined up, back out when stuck).
 - **Input is decoupled from simulation.** `Car` consumes a `CarInput` each tick; locally controlled cars fill it from devices, remote/server cars will fill it from the network. Keep this separation for any new controllable entity.
 
 ## Conventions
 
 - Scenes in `scenes/`, scripts in `scripts/`. Typed GDScript (`:=`, typed args/returns), tabs for indentation.
 - Car front faces `-Z`.
-- Input actions are prefixed `car_` (defined in `project.godot`).
+- Input actions are prefixed `car_` (defined in `project.godot`). Fire: left mouse / K / Ctrl; handbrake: Space; reset: R.
 
 ## Running
 

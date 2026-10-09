@@ -1,4 +1,4 @@
-[gd_scene load_steps=14 format=3]
+[gd_scene load_steps=16 format=3]
 
 [ext_resource type="Script" path="res://scripts/car.gd" id="1_car"]
 [ext_resource type="PackedScene" path="res://scenes/wheel.tscn" id="2_wheel"]
@@ -52,6 +52,16 @@ size = Vector3(0.3, 0.15, 0.04)
 material = SubResource("Mat_headlight")
 size = Vector3(0.3, 0.12, 0.04)
 
+[sub_resource type="StandardMaterial3D" id="Mat_muzzle"]
+albedo_color = Color(0.02, 0.02, 0.02, 1)
+roughness = 1.0
+
+[sub_resource type="CylinderMesh" id="Mesh_muzzle"]
+material = SubResource("Mat_muzzle")
+top_radius = 0.12
+bottom_radius = 0.12
+height = 0.06
+
 [sub_resource type="SceneReplicationConfig" id="ReplConfig"]
 properties/0/path = NodePath(".:net_transform")
 properties/0/spawn = true
@@ -62,6 +72,15 @@ properties/1/replication_mode = 1
 properties/2/path = NodePath(".:net_steer")
 properties/2/spawn = true
 properties/2/replication_mode = 1
+properties/3/path = NodePath(".:health")
+properties/3/spawn = true
+properties/3/replication_mode = 2
+properties/4/path = NodePath(".:kills")
+properties/4/spawn = true
+properties/4/replication_mode = 2
+properties/5/path = NodePath(".:is_destroyed")
+properties/5/spawn = true
+properties/5/replication_mode = 2
 
 [node name="Car" type="RigidBody3D"]
 mass = 1000.0
@@ -142,6 +161,13 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.45, 0, 1.35)
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.45, 0, 1.35)
 
 [node name="Wheel" parent="Visual/WheelRR" instance=ExtResource("2_wheel")]
+
+[node name="Muzzle" type="Marker3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -2.05)
+
+[node name="MuzzleHole" type="MeshInstance3D" parent="Visual"]
+transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 0, -1.95)
+mesh = SubResource("Mesh_muzzle")
 
 [node name="Sync" type="MultiplayerSynchronizer" parent="."]
 replication_interval = 0.033

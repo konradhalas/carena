@@ -12,7 +12,10 @@ extends RigidBody3D
 ## MultiplayerSynchronizer (net_* properties) and smooths towards it. Offline
 ## (sandbox, tests) the default OfflineMultiplayerPeer makes this peer the server.
 
+signal destroyed
+
 const WHEEL_COUNT := 4
+const WRECK_COLOR := Color(0.07, 0.07, 0.07)
 const FRONT_WHEELS: Array[int] = [0, 1]
 
 @export_group("Engine")
@@ -43,6 +46,12 @@ const FRONT_WHEELS: Array[int] = [0, 1]
 @export var side_tip_torque := 25000.0
 @export var auto_flip_delay := 2.0  ## seconds stuck with no wheel on the ground
 
+@export_group("Combat")
+@export var max_health := 100.0
+@export var fire_interval := 0.14  ## seconds between shots
+@export var respawn_delay := 3.0
+@export var explosion_impulse := 7.0  ## upward kick on destruction, m/s
+
 @export_group("Network smoothing")
 @export var follow_sharpness := 15.0  ## how fast clients converge on server state
 @export var max_extrapolation := 0.25  ## seconds to dead-reckon past the last update
@@ -59,11 +68,26 @@ var input := CarInput.new()
 var net_transform := Transform3D()
 var net_velocity := Vector3.ZERO
 var net_steer := 0.0
+var health := max_health
+var kills := 0
+var is_destroyed := false:
+	set(value):
+		if value == is_destroyed:
+			return
+		is_destroyed = value
+		_show_destroyed_state()
+
+## Where the car comes back after being destroyed (defaults to where it started).
+var spawn_transform := Transform3D()
 
 var _anchors: Array[Vector3] = []  ## local axle points, FL, FR, RL, RR
 var _stuck_time := 0.0
 var _flip_requested := false
 var _since_sync := 0.0
+var _fire_cooldown := 0.0
+var _respawn_timer := 0.0
+var _respawn_requested := false
+var _bot: BotDriver
 
 @onready var _wheel_pivots: Array[Node3D] = [
 	$Visual/WheelFL, $Visual/WheelFR, $Visual/WheelRL, $Visual/WheelRR
@@ -71,12 +95,20 @@ var _since_sync := 0.0
 @onready var _wheels: Array[Wheel] = [
 	$Visual/WheelFL/Wheel, $Visual/WheelFR/Wheel, $Visual/WheelRL/Wheel, $Visual/WheelRR/Wheel
 ]
+## On the front bumper at axle height — the car's centre of symmetry, so it
+## fires the same whether the car is on its wheels or its roof.
+@onready var _muzzle: Marker3D = $Muzzle
+@onready var _body_mesh: MeshInstance3D = $Visual/Body
 
 
 func _ready() -> void:
+	add_to_group("cars")
 	for pivot in _wheel_pivots:
 		_anchors.append(pivot.position)
 	net_transform = global_transform
+	health = max_health
+	if spawn_transform == Transform3D():
+		spawn_transform = global_transform
 	if not multiplayer.is_server():
 		# Clients never simulate: the body just follows replicated state.
 		freeze_mode = RigidBody3D.FREEZE_MODE_KINEMATIC
@@ -86,13 +118,17 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	if is_locally_controlled:
-		input = CarInput.from_local_devices()
+		input = _read_local_input(delta)
 		if not multiplayer.is_server():
-			_submit_input.rpc_id(1, input.throttle, input.steer, input.handbrake)
+			_submit_input.rpc_id(1, input.throttle, input.steer, input.handbrake, input.fire)
 			if input.reset:
 				_request_reset.rpc_id(1)
 
 	if multiplayer.is_server():
+		if is_destroyed:
+			input = CarInput.new()  # wrecks don't drive or shoot
+			_update_respawn(delta)
+		_update_weapon(delta)
 		_simulate(delta)
 		net_transform = global_transform
 		net_velocity = linear_velocity
@@ -102,19 +138,76 @@ func _physics_process(delta: float) -> void:
 		_update_wheels_visual_only(delta)
 
 
+func _read_local_input(delta: float) -> CarInput:
+	if not CarInput.bot_mode:
+		return CarInput.from_local_devices()
+	if _bot == null:
+		_bot = BotDriver.new()
+	return _bot.drive(self, delta)
+
+
 @rpc("any_peer", "call_remote", "unreliable_ordered")
-func _submit_input(throttle: float, steer: float, handbrake: bool) -> void:
+func _submit_input(throttle: float, steer: float, handbrake: bool, fire: bool) -> void:
 	if multiplayer.get_remote_sender_id() != owner_peer_id:
 		return
 	input.throttle = clampf(throttle, -1.0, 1.0)
 	input.steer = clampf(steer, -1.0, 1.0)
 	input.handbrake = handbrake
+	input.fire = fire
 
 
 @rpc("any_peer", "call_remote", "reliable")
 func _request_reset() -> void:
 	if multiplayer.get_remote_sender_id() == owner_peer_id:
 		input.reset = true
+
+
+## Server only. Returns true when this hit destroyed the car.
+func apply_damage(amount: float) -> bool:
+	if is_destroyed:
+		return false
+	health = maxf(health - amount, 0.0)
+	if health > 0.0:
+		return false
+	is_destroyed = true
+	_respawn_timer = respawn_delay
+	# Throw the wreck up and spin it a little — it's an explosion after all.
+	apply_central_impulse(Vector3.UP * explosion_impulse * mass)
+	var spin := Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1))
+	apply_torque_impulse(spin * mass * 2.0)
+	destroyed.emit()
+	return true
+
+
+func _update_weapon(delta: float) -> void:
+	_fire_cooldown -= delta
+	if not input.fire or _fire_cooldown > 0.0:
+		return
+	var projectiles := get_tree().get_first_node_in_group("projectiles") as Projectiles
+	if projectiles:
+		_fire_cooldown = fire_interval
+		projectiles.fire(self, _muzzle.global_position, -global_basis.z)
+
+
+func _update_respawn(delta: float) -> void:
+	_respawn_timer -= delta
+	if _respawn_timer <= 0.0:
+		_respawn_requested = true
+		health = max_health
+		is_destroyed = false
+
+
+func _show_destroyed_state() -> void:
+	if not is_inside_tree():
+		return
+	if is_destroyed:
+		var wreck := StandardMaterial3D.new()
+		wreck.albedo_color = WRECK_COLOR
+		wreck.roughness = 1.0
+		_body_mesh.material_override = wreck
+		Effects.explosion(get_parent(), global_position)
+	else:
+		_body_mesh.material_override = null
 
 
 func _simulate(delta: float) -> void:
@@ -163,12 +256,21 @@ func _simulate(delta: float) -> void:
 		)
 		apply_force(wheel_forward * clampf(longitudinal, -max_tire_force, max_tire_force), offset)
 
+	if is_destroyed:
+		return
 	if grounded == 0 and get_contact_count() > 0:
 		_tip_off_side()
 	_update_recovery(grounded, delta)
 
 
 func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
+	if _respawn_requested:
+		_respawn_requested = false
+		_flip_requested = false
+		state.transform = spawn_transform
+		state.linear_velocity = Vector3.ZERO
+		state.angular_velocity = Vector3.ZERO
+		return
 	if not _flip_requested:
 		return
 	_flip_requested = false

@@ -14,7 +14,8 @@ var _state_log_timer := 0.0
 @onready var _players: Node3D = $Players
 @onready var _spawner: MultiplayerSpawner = $PlayerSpawner
 @onready var _camera: Camera3D = $Camera
-@onready var _status: Label = $HUD/Status
+@onready var _hud: CanvasLayer = $HUD
+@onready var _status: Label = $StatusLayer/Status
 
 
 func _ready() -> void:
@@ -75,7 +76,9 @@ func _log_state() -> void:
 	var cars: Array[String] = []
 	for car: Car in _players.get_children():
 		var p := car.global_position
-		cars.append("%s(%.1f, %.1f, %.1f)" % [car.name, p.x, p.y, p.z])
+		cars.append(
+			"%s(%.1f, %.1f, %.1f hp=%d kills=%d)" % [car.name, p.x, p.y, p.z, car.health, car.kills]
+		)
 	print("[peer %d] %s" % [multiplayer.get_unique_id(), ", ".join(cars)])
 
 
@@ -87,6 +90,8 @@ func _create_car(data: Dictionary) -> Node:
 	car.owner_peer_id = peer_id
 	car.is_locally_controlled = peer_id == multiplayer.get_unique_id()
 	car.transform = Transform3D(Basis(Vector3.UP, data["yaw"]), data["position"])
+	car.spawn_transform = car.transform
 	if car.is_locally_controlled:
 		_camera.target = car
+		_hud.car = car
 	return car
