@@ -1,0 +1,133 @@
+[gd_scene load_steps=13 format=3]
+
+[ext_resource type="Script" path="res://scripts/car.gd" id="1_car"]
+[ext_resource type="PackedScene" path="res://scenes/wheel.tscn" id="2_wheel"]
+
+[sub_resource type="PhysicsMaterial" id="PhysMat_car"]
+friction = 0.3
+bounce = 0.1
+
+[sub_resource type="BoxShape3D" id="Shape_body"]
+size = Vector3(1.8, 0.75, 3.8)
+
+[sub_resource type="CylinderShape3D" id="Shape_wheel"]
+height = 0.65
+radius = 0.6
+
+[sub_resource type="StandardMaterial3D" id="Mat_hull"]
+albedo_color = Color(0.22, 0.28, 0.4, 1)
+metallic = 0.6
+roughness = 0.5
+
+[sub_resource type="StandardMaterial3D" id="Mat_dark"]
+albedo_color = Color(0.1, 0.11, 0.14, 1)
+metallic = 0.6
+roughness = 0.45
+
+[sub_resource type="StandardMaterial3D" id="Mat_taillight"]
+albedo_color = Color(1, 0.1, 0.15, 1)
+emission_enabled = true
+emission = Color(1, 0.08, 0.12, 1)
+emission_energy_multiplier = 4.0
+
+[sub_resource type="StandardMaterial3D" id="Mat_headlight"]
+albedo_color = Color(0.9, 0.95, 1, 1)
+emission_enabled = true
+emission = Color(0.85, 0.95, 1, 1)
+emission_energy_multiplier = 4.0
+
+[sub_resource type="BoxMesh" id="Mesh_body"]
+material = SubResource("Mat_hull")
+size = Vector3(1.8, 0.75, 3.8)
+
+[sub_resource type="BoxMesh" id="Mesh_axle"]
+material = SubResource("Mat_dark")
+size = Vector3(2.6, 0.15, 0.2)
+
+[sub_resource type="BoxMesh" id="Mesh_taillight"]
+material = SubResource("Mat_taillight")
+size = Vector3(0.3, 0.15, 0.04)
+
+[sub_resource type="BoxMesh" id="Mesh_headlight"]
+material = SubResource("Mat_headlight")
+size = Vector3(0.3, 0.12, 0.04)
+
+[node name="Car" type="RigidBody3D"]
+mass = 1000.0
+physics_material_override = SubResource("PhysMat_car")
+gravity_scale = 2.0
+continuous_cd = true
+contact_monitor = true
+max_contacts_reported = 4
+angular_damp = 0.5
+script = ExtResource("1_car")
+
+[node name="BodyShape" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.05)
+shape = SubResource("Shape_body")
+
+[node name="WheelShapeFL" type="CollisionShape3D" parent="."]
+transform = Transform3D(0, -1, 0, 1, 0, 0, 0, 0, 1, -1.45, 0, -1.4)
+shape = SubResource("Shape_wheel")
+
+[node name="WheelShapeFR" type="CollisionShape3D" parent="."]
+transform = Transform3D(0, -1, 0, 1, 0, 0, 0, 0, 1, 1.45, 0, -1.4)
+shape = SubResource("Shape_wheel")
+
+[node name="WheelShapeRL" type="CollisionShape3D" parent="."]
+transform = Transform3D(0, -1, 0, 1, 0, 0, 0, 0, 1, -1.45, 0, 1.35)
+shape = SubResource("Shape_wheel")
+
+[node name="WheelShapeRR" type="CollisionShape3D" parent="."]
+transform = Transform3D(0, -1, 0, 1, 0, 0, 0, 0, 1, 1.45, 0, 1.35)
+shape = SubResource("Shape_wheel")
+
+[node name="Visual" type="Node3D" parent="."]
+
+[node name="Body" type="MeshInstance3D" parent="Visual"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.05)
+mesh = SubResource("Mesh_body")
+
+[node name="FrontAxle" type="MeshInstance3D" parent="Visual"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -1.4)
+mesh = SubResource("Mesh_axle")
+
+[node name="RearAxle" type="MeshInstance3D" parent="Visual"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1.35)
+mesh = SubResource("Mesh_axle")
+
+[node name="Headlight1" type="MeshInstance3D" parent="Visual"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.6, 0.1, -1.96)
+mesh = SubResource("Mesh_headlight")
+
+[node name="Headlight2" type="MeshInstance3D" parent="Visual"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.6, 0.1, -1.96)
+mesh = SubResource("Mesh_headlight")
+
+[node name="TailLight1" type="MeshInstance3D" parent="Visual"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.6, 0.1, 1.86)
+mesh = SubResource("Mesh_taillight")
+
+[node name="TailLight2" type="MeshInstance3D" parent="Visual"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.6, 0.1, 1.86)
+mesh = SubResource("Mesh_taillight")
+
+[node name="WheelFL" type="Node3D" parent="Visual"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.45, 0, -1.4)
+
+[node name="Wheel" parent="Visual/WheelFL" instance=ExtResource("2_wheel")]
+
+[node name="WheelFR" type="Node3D" parent="Visual"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.45, 0, -1.4)
+
+[node name="Wheel" parent="Visual/WheelFR" instance=ExtResource("2_wheel")]
+
+[node name="WheelRL" type="Node3D" parent="Visual"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.45, 0, 1.35)
+
+[node name="Wheel" parent="Visual/WheelRL" instance=ExtResource("2_wheel")]
+
+[node name="WheelRR" type="Node3D" parent="Visual"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.45, 0, 1.35)
+
+[node name="Wheel" parent="Visual/WheelRR" instance=ExtResource("2_wheel")]

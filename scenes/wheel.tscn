@@ -1,0 +1,72 @@
+[gd_scene load_steps=10 format=3]
+
+[ext_resource type="Script" path="res://scripts/wheel.gd" id="1_wheel"]
+
+[sub_resource type="StandardMaterial3D" id="Mat_tire"]
+albedo_color = Color(0.06, 0.06, 0.07, 1)
+roughness = 0.9
+
+[sub_resource type="CylinderMesh" id="Mesh_tire"]
+material = SubResource("Mat_tire")
+top_radius = 0.6
+bottom_radius = 0.6
+height = 0.65
+radial_segments = 24
+
+[sub_resource type="StandardMaterial3D" id="Mat_rim"]
+albedo_color = Color(0.7, 0.72, 0.76, 1)
+metallic = 0.8
+roughness = 0.3
+
+[sub_resource type="CylinderMesh" id="Mesh_rim"]
+material = SubResource("Mat_rim")
+top_radius = 0.38
+bottom_radius = 0.38
+height = 0.67
+radial_segments = 20
+
+[sub_resource type="StandardMaterial3D" id="Mat_spoke"]
+albedo_color = Color(0.12, 0.13, 0.16, 1)
+metallic = 0.6
+roughness = 0.4
+
+[sub_resource type="BoxMesh" id="Mesh_spoke"]
+material = SubResource("Mat_spoke")
+size = Vector3(0.69, 0.66, 0.1)
+
+[sub_resource type="StandardMaterial3D" id="Mat_hub"]
+albedo_color = Color(0.2, 0.9, 1, 1)
+emission_enabled = true
+emission = Color(0.2, 0.9, 1, 1)
+emission_energy_multiplier = 3.0
+
+[sub_resource type="CylinderMesh" id="Mesh_hub"]
+material = SubResource("Mat_hub")
+top_radius = 0.1
+bottom_radius = 0.1
+height = 0.71
+radial_segments = 12
+
+[node name="Wheel" type="Node3D"]
+script = ExtResource("1_wheel")
+
+[node name="Spin" type="Node3D" parent="."]
+
+[node name="Tire" type="MeshInstance3D" parent="Spin"]
+transform = Transform3D(0, -1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0)
+mesh = SubResource("Mesh_tire")
+
+[node name="Rim" type="MeshInstance3D" parent="Spin"]
+transform = Transform3D(0, -1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0)
+mesh = SubResource("Mesh_rim")
+
+[node name="SpokeA" type="MeshInstance3D" parent="Spin"]
+mesh = SubResource("Mesh_spoke")
+
+[node name="SpokeB" type="MeshInstance3D" parent="Spin"]
+transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 0, 0)
+mesh = SubResource("Mesh_spoke")
+
+[node name="Hub" type="MeshInstance3D" parent="Spin"]
+transform = Transform3D(0, -1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0)
+mesh = SubResource("Mesh_hub")
