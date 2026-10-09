@@ -54,7 +54,7 @@ const FRONT_WHEELS: Array[int] = [0, 1]
 
 @export_group("Steering")
 @export var max_steer_angle := 0.6  ## rad at low speed
-@export var high_speed_steer_angle := 0.26  ## rad at max_speed
+@export var high_speed_steer_angle := 0.22  ## rad at max_speed
 ## Rear wheels steer against the fronts by this share of the front angle at
 ## low speed (tighter turns), fading to `high_speed_rear_steer` at max_speed.
 @export var low_speed_rear_steer := 0.45
@@ -68,13 +68,13 @@ const FRONT_WHEELS: Array[int] = [0, 1]
 @export_group("Drift")
 ## Handbrake breaks the rear loose; the slide then holds while you stay on the
 ## throttle at a slip angle, and grip comes back once you straighten out.
-@export var drift_rear_grip := 0.1  ## rear grip while fully drifting
+@export var drift_rear_grip := 0.15  ## rear grip while fully drifting
 @export var drift_front_grip := 0.85  ## share of front grip kept while drifting
 @export var handbrake_deceleration := 14.0  ## locked rear wheels, m/s²
-@export var drift_kick := 2.5  ## yaw help when pulling the handbrake into a turn
-@export var drift_hold_slip := 0.22  ## rad of slip angle that sustains a drift on throttle
-@export var drift_sustain_level := 0.75  ## drift amount held while powersliding
-@export var drift_recovery := 1.6  ## per second, grip coming back
+@export var drift_kick := 2.0  ## yaw help when pulling the handbrake into a turn
+@export var drift_hold_slip := 0.18  ## rad of slip angle that sustains a drift on throttle
+@export var drift_sustain_level := 0.6  ## drift amount held while powersliding
+@export var drift_recovery := 2.2  ## per second, grip coming back
 @export var spin_out_slip := 1.25  ## rad; beyond this yaw is damped to avoid spinning out
 @export var spin_damping := 3.0
 
@@ -465,9 +465,10 @@ func _longitudinal_force(
 	return input.throttle * engine_acceleration * mass_per_wheel * headroom
 
 
-## Drift state machine: the handbrake breaks the rear loose (with a yaw kick
-## into the turn); a slide held on throttle at a decent slip angle keeps it
-## loose; otherwise grip recovers. Very large slip angles get yaw damping so
+## Drift state machine: only the handbrake starts a drift (breaking the rear
+## loose, with a yaw kick into the turn); a slide held on throttle at a decent
+## slip angle keeps an existing drift going but never starts one, so ordinary
+## fast corners keep their grip; otherwise grip recovers. Very large slip angles get yaw damping so
 ## a drift doesn't turn into a spin.
 func _update_drift(delta: float, speed: float, slip_angle: float, wheel_up: Vector3) -> void:
 	var moving := absf(speed) > 5.0
@@ -478,8 +479,9 @@ func _update_drift(delta: float, speed: float, slip_angle: float, wheel_up: Vect
 		_drift = 1.0
 		if not is_zero_approx(input.steer):
 			apply_torque(wheel_up * -input.steer * drift_kick * mass)
-	elif powersliding:
-		_drift = move_toward(_drift, drift_sustain_level, drift_recovery * delta)
+	elif powersliding and _drift > 0.0:
+		var hold := minf(_drift, drift_sustain_level)  # hold, never build up
+		_drift = move_toward(_drift, hold, drift_recovery * delta)
 	else:
 		_drift = move_toward(_drift, 0.0, drift_recovery * delta)
 

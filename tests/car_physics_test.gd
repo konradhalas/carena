@@ -78,10 +78,22 @@ func test_handbrake_into_a_turn_starts_a_drift_that_recovers() -> void:
 	_car.input.steer = 0.0
 	await _step(seconds(1.5))
 
-	assert_float(max_slip[0]).is_greater(15.0)  # it actually slid
+	assert_float(max_slip[0]).is_greater(12.0)  # it actually slid
 	assert_float(max_slip[0]).is_less(60.0)  # ...without spinning out
 	assert_float(absf(_slip_degrees())).is_less(5.0)  # grip came back
 	assert_float(_forward_speed()).is_greater(20.0)
+
+
+func test_fast_cornering_without_handbrake_keeps_grip() -> void:
+	_place(Vector3(48, 1.4, 47), PI / 2)
+	_car.input.throttle = 1.0
+	await _step(seconds(2))
+	_car.input.steer = 1.0
+	var max_slip := [0.0]
+	await _step(seconds(1), func(): max_slip[0] = maxf(max_slip[0], absf(_slip_degrees())))
+
+	assert_float(max_slip[0]).is_less(15.0)
+	assert_float(_car._drift).is_equal(0.0)
 
 
 func test_cornering_on_flat_ground_does_not_roll_car() -> void:

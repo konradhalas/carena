@@ -6,7 +6,7 @@ Multiplayer 3D car arena combat game (shooting + traps) in Godot 4.7, GDScript.
 
 - **3D, arcade physics on `RigidBody3D` with raycast suspension** (`scripts/car.gd`), not `VehicleBody3D`. Jolt physics engine.
   - Each wheel = ray + spring-damper + per-wheel grip/drive forces. Grip/drive applied at axle height so cornering doesn't roll the car; flips come from terrain.
-  - Handling: ~40 m/s top speed, rear wheels counter-steer at low speed (fading out with speed). Drift model (`_update_drift`): handbrake locks only the rear wheels and breaks their grip (+ a yaw kick into the turn); a slide held on throttle above `drift_hold_slip` keeps the rear loose; grip recovers otherwise; yaw is damped beyond `spin_out_slip` so drifts don't become spins. Tests cover top speed, tight turns and drift entry/hold/recovery.
+  - Handling: ~40 m/s top speed, rear wheels counter-steer at low speed (fading out with speed). Drift model (`_update_drift`): handbrake locks only the rear wheels and breaks their grip (+ a yaw kick into the turn); a slide held on throttle above `drift_hold_slip` keeps an existing drift going (it must never start one — ordinary fast corners keep grip, there is a test); grip recovers otherwise; yaw is damped beyond `spin_out_slip` so drifts don't become spins. Tests cover top speed, tight turns and drift entry/hold/recovery.
   - Body is vertically symmetric around the axle line and wheels stick out both sides → an upside-down car keeps driving (rays flip side).
   - Network: server simulates the rigid body; clients interpolate. Client-side prediction for rigid bodies is a later, separate problem.
 - **Internet multiplayer, up to ~50 players per match.** Target: dedicated headless server, server-authoritative.
