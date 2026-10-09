@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GODOT_VERSION: 4.7.2
+  GDTOOLKIT_VERSION: 4.5.0
+  CODE_DIRS: scripts tests tools
+
+jobs:
+  lint:
+    name: Lint & format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pip install "gdtoolkit==${GDTOOLKIT_VERSION}"
+      - run: gdlint $CODE_DIRS
+      - run: gdformat --check --diff $CODE_DIRS
+
+  project-check:
+    name: Project loads
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install Godot
+        run: |
+          base="https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}-stable"
+          zip="Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          curl -fsSLO "$base/$zip"
+          curl -fsSL "$base/SHA512-SUMS.txt" | grep " $zip\$" | sha512sum -c -
+          unzip -q "$zip"
+          mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" /usr/local/bin/godot
+      - name: Import project
+        run: godot --headless --import
+      - name: Check scripts and scenes
+        run: godot --headless --script res://tools/check_project.gd
+
+  tests:
+    name: Tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: godot-gdunit-labs/gdUnit4-action@v1.3.2
+        with:
+          godot-version: ${{ env.GODOT_VERSION }}
+          version: installed
+          paths: res://tests

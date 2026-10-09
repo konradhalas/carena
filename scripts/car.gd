@@ -70,8 +70,9 @@ func _physics_process(delta: float) -> void:
 	var wheel_up := global_basis.y * flip_sign
 	var forward := -global_basis.z
 	var speed := linear_velocity.dot(forward)
-	var steer_angle := -input.steer * lerpf(
-		max_steer_angle, high_speed_steer_angle, clampf(absf(speed) / max_speed, 0.0, 1.0)
+	var steer_angle := (
+		-input.steer
+		* lerpf(max_steer_angle, high_speed_steer_angle, clampf(absf(speed) / max_speed, 0.0, 1.0))
 	)
 	var mass_per_wheel := mass / WHEEL_COUNT
 	var resting_load := mass_per_wheel * get_gravity().length()
@@ -83,7 +84,9 @@ func _physics_process(delta: float) -> void:
 		var ray_length := suspension_travel + wheel_radius
 		var hit := _cast(anchor, anchor - wheel_up * ray_length)
 		var hit_distance := ray_length if hit.is_empty() else anchor.distance_to(hit.position)
-		_place_wheel_visual(i, flip_sign, hit_distance - wheel_radius, steer_angle if is_front else 0.0, delta)
+		_place_wheel_visual(
+			i, flip_sign, hit_distance - wheel_radius, steer_angle if is_front else 0.0, delta
+		)
 		if hit.is_empty():
 			continue
 		grounded += 1
@@ -107,7 +110,9 @@ func _physics_process(delta: float) -> void:
 		var lateral := -point_velocity.dot(wheel_right) * wheel_grip * mass_per_wheel / delta
 		apply_force(wheel_right * clampf(lateral, -max_tire_force, max_tire_force), offset)
 
-		var longitudinal := _longitudinal_force(point_velocity.dot(wheel_forward), speed, mass_per_wheel, delta)
+		var longitudinal := _longitudinal_force(
+			point_velocity.dot(wheel_forward), speed, mass_per_wheel, delta
+		)
 		apply_force(wheel_forward * clampf(longitudinal, -max_tire_force, max_tire_force), offset)
 
 	if grounded == 0 and get_contact_count() > 0:
@@ -124,13 +129,16 @@ func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
 	if heading.length_squared() < 0.01:
 		heading = Vector3.FORWARD
 	state.transform = Transform3D(
-		Basis.looking_at(heading.normalized(), Vector3.UP), state.transform.origin + Vector3.UP * 1.5
+		Basis.looking_at(heading.normalized(), Vector3.UP),
+		state.transform.origin + Vector3.UP * 1.5
 	)
 	state.linear_velocity = Vector3.ZERO
 	state.angular_velocity = Vector3.ZERO
 
 
-func _longitudinal_force(wheel_speed: float, car_speed: float, mass_per_wheel: float, delta: float) -> float:
+func _longitudinal_force(
+	wheel_speed: float, car_speed: float, mass_per_wheel: float, delta: float
+) -> float:
 	if input.handbrake or is_zero_approx(input.throttle):
 		var deceleration := brake_deceleration if input.handbrake else coast_deceleration
 		# Never push past zero within a tick, or the car jitters at rest.
@@ -168,7 +176,9 @@ func _cast(from: Vector3, to: Vector3) -> Dictionary:
 	return get_world_3d().direct_space_state.intersect_ray(query)
 
 
-func _place_wheel_visual(i: int, flip_sign: float, extension: float, steer_angle: float, delta: float) -> void:
+func _place_wheel_visual(
+	i: int, flip_sign: float, extension: float, steer_angle: float, delta: float
+) -> void:
 	var pivot := _wheel_pivots[i]
 	pivot.position = _anchors[i] + Vector3.DOWN * flip_sign * extension
 	pivot.rotation.y = steer_angle * flip_sign

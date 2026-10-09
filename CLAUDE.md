@@ -22,4 +22,14 @@ Multiplayer 3D car arena combat game (shooting + traps) in Godot 4.7, GDScript.
 ## Running
 
 - Play: `godot --path .` (or open in editor, F5).
-- Headless check / import: `godot --headless --import`.
+- Import: `godot --headless --import`.
+- Project check (all scripts compile, all scenes load without engine errors): `godot --headless --script res://tools/check_project.gd`.
+- Tests (gdUnit4, vendored in `addons/gdUnit4`): `GODOT_BIN=$(which godot) ./addons/gdUnit4/runtest.sh --headless --ignoreHeadlessMode -a tests`.
+- Lint/format (gdtoolkit): `uvx --from gdtoolkit==4.5.0 gdlint scripts tests tools` and `... gdformat scripts tests tools`.
+- CI (`.github/workflows/ci.yml`) runs all of the above on push to main and on PRs. Keep it green: run tests + lint before committing.
+
+## Testing
+
+- Tests live in `tests/`, named `*_test.gd`, extend `GdUnitTestSuite`.
+- Car physics tests drive the real `scenes/main.tscn` by setting `car.input` and stepping physics frames; they depend on the arena layout (spawn point, ramp position). If you move the ramp or spawn, update the tests.
+- When changing driving feel, keep the behavioural guarantees covered by tests (settles at rest, jumps ramp and lands, no roll when cornering on flat, drives on roof, tips off its side, reset).

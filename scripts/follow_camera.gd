@@ -18,7 +18,9 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	if not target:
 		return
-	global_position = global_position.lerp(_desired_position(), clampf(follow_speed * delta, 0.0, 1.0))
+	global_position = global_position.lerp(
+		_desired_position(), clampf(follow_speed * delta, 0.0, 1.0)
+	)
 	look_at(target.global_position + Vector3.UP * look_height)
 
 
