@@ -63,3 +63,9 @@ car_reset={
 3d/physics_engine="Jolt Physics"
 common/physics_ticks_per_second=60
 common/physics_interpolation=true
+
+[rendering]
+
+anti_aliasing/quality/use_debanding=true
+environment/volumetric_fog/volume_size=96
+environment/volumetric_fog/volume_depth=96
