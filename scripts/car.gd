@@ -6,6 +6,11 @@ extends RigidBody3D
 ## holds the body up, and per-wheel drive/grip forces move it. The body is
 ## vertically symmetric around the axles and wheels stick out on both sides, so
 ## when the car lands on its roof the rays simply flip and it keeps driving.
+##
+## Networking: only the server simulates physics. The owning client sends its
+## input to the server; every client receives the car's state through the
+## MultiplayerSynchronizer (net_* properties) and smooths towards it. Offline
+## (sandbox, tests) the default OfflineMultiplayerPeer makes this peer the server.
 
 const WHEEL_COUNT := 4
 const FRONT_WHEELS: Array[int] = [0, 1]
@@ -38,15 +43,27 @@ const FRONT_WHEELS: Array[int] = [0, 1]
 @export var side_tip_torque := 25000.0
 @export var auto_flip_delay := 2.0  ## seconds stuck with no wheel on the ground
 
+@export_group("Network smoothing")
+@export var follow_sharpness := 15.0  ## how fast clients converge on server state
+@export var max_extrapolation := 0.25  ## seconds to dead-reckon past the last update
+
 @export_group("")
 ## When true, the car reads input from this machine's keyboard/gamepad.
 @export var is_locally_controlled := true
 
+## Peer that drives this car; only its input is accepted by the server.
+var owner_peer_id := 1
 var input := CarInput.new()
+
+# Server-authoritative state, replicated to clients by the "Sync" node.
+var net_transform := Transform3D()
+var net_velocity := Vector3.ZERO
+var net_steer := 0.0
 
 var _anchors: Array[Vector3] = []  ## local axle points, FL, FR, RL, RR
 var _stuck_time := 0.0
 var _flip_requested := false
+var _since_sync := 0.0
 
 @onready var _wheel_pivots: Array[Node3D] = [
 	$Visual/WheelFL, $Visual/WheelFR, $Visual/WheelRL, $Visual/WheelRR
@@ -59,21 +76,53 @@ var _flip_requested := false
 func _ready() -> void:
 	for pivot in _wheel_pivots:
 		_anchors.append(pivot.position)
+	net_transform = global_transform
+	if not multiplayer.is_server():
+		# Clients never simulate: the body just follows replicated state.
+		freeze_mode = RigidBody3D.FREEZE_MODE_KINEMATIC
+		freeze = true
+		$Sync.synchronized.connect(func(): _since_sync = 0.0)
 
 
 func _physics_process(delta: float) -> void:
 	if is_locally_controlled:
 		input = CarInput.from_local_devices()
+		if not multiplayer.is_server():
+			_submit_input.rpc_id(1, input.throttle, input.steer, input.handbrake)
+			if input.reset:
+				_request_reset.rpc_id(1)
 
-	# Rays point to whichever side of the car faces the ground.
-	var flip_sign := 1.0 if global_basis.y.y >= 0.0 else -1.0
+	if multiplayer.is_server():
+		_simulate(delta)
+		net_transform = global_transform
+		net_velocity = linear_velocity
+		net_steer = input.steer
+	else:
+		_follow_server(delta)
+		_update_wheels_visual_only(delta)
+
+
+@rpc("any_peer", "call_remote", "unreliable_ordered")
+func _submit_input(throttle: float, steer: float, handbrake: bool) -> void:
+	if multiplayer.get_remote_sender_id() != owner_peer_id:
+		return
+	input.throttle = clampf(throttle, -1.0, 1.0)
+	input.steer = clampf(steer, -1.0, 1.0)
+	input.handbrake = handbrake
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _request_reset() -> void:
+	if multiplayer.get_remote_sender_id() == owner_peer_id:
+		input.reset = true
+
+
+func _simulate(delta: float) -> void:
+	var flip_sign := _flip_sign()
 	var wheel_up := global_basis.y * flip_sign
 	var forward := -global_basis.z
 	var speed := linear_velocity.dot(forward)
-	var steer_angle := (
-		-input.steer
-		* lerpf(max_steer_angle, high_speed_steer_angle, clampf(absf(speed) / max_speed, 0.0, 1.0))
-	)
+	var steer_angle := _steer_angle(input.steer, speed)
 	var mass_per_wheel := mass / WHEEL_COUNT
 	var resting_load := mass_per_wheel * get_gravity().length()
 	var grounded := 0
@@ -82,12 +131,11 @@ func _physics_process(delta: float) -> void:
 		var is_front := i in FRONT_WHEELS
 		var anchor := global_transform * _anchors[i]
 		var ray_length := suspension_travel + wheel_radius
-		var hit := _cast(anchor, anchor - wheel_up * ray_length)
-		var hit_distance := ray_length if hit.is_empty() else anchor.distance_to(hit.position)
+		var hit_distance := _probe_ground(anchor, wheel_up, ray_length)
 		_place_wheel_visual(
 			i, flip_sign, hit_distance - wheel_radius, steer_angle if is_front else 0.0, delta
 		)
-		if hit.is_empty():
+		if hit_distance >= ray_length:
 			continue
 		grounded += 1
 
@@ -169,11 +217,47 @@ func _update_recovery(grounded_wheels: int, delta: float) -> void:
 	if input.reset or _stuck_time > auto_flip_delay:
 		_stuck_time = 0.0
 		_flip_requested = true
+		input.reset = false  # one-shot; remote input persists between packets
 
 
-func _cast(from: Vector3, to: Vector3) -> Dictionary:
-	var query := PhysicsRayQueryParameters3D.create(from, to, collision_mask, [get_rid()])
-	return get_world_3d().direct_space_state.intersect_ray(query)
+func _follow_server(delta: float) -> void:
+	_since_sync += delta
+	var target := net_transform
+	target.origin += net_velocity * minf(_since_sync, max_extrapolation)
+	var weight := clampf(follow_sharpness * delta, 0.0, 1.0)
+	global_transform = global_transform.interpolate_with(target, weight)
+
+
+func _update_wheels_visual_only(delta: float) -> void:
+	var flip_sign := _flip_sign()
+	var wheel_up := global_basis.y * flip_sign
+	var steer := input.steer if is_locally_controlled else net_steer
+	var steer_angle := _steer_angle(steer, net_velocity.dot(-global_basis.z))
+	var ray_length := suspension_travel + wheel_radius
+	for i in WHEEL_COUNT:
+		var anchor := global_transform * _anchors[i]
+		var hit_distance := _probe_ground(anchor, wheel_up, ray_length)
+		var wheel_steer := steer_angle if i in FRONT_WHEELS else 0.0
+		_place_wheel_visual(i, flip_sign, hit_distance - wheel_radius, wheel_steer, delta)
+
+
+## Rays point to whichever side of the car faces the ground.
+func _flip_sign() -> float:
+	return 1.0 if global_basis.y.y >= 0.0 else -1.0
+
+
+func _steer_angle(steer: float, speed: float) -> float:
+	var speed_ratio := clampf(absf(speed) / max_speed, 0.0, 1.0)
+	return -steer * lerpf(max_steer_angle, high_speed_steer_angle, speed_ratio)
+
+
+## Distance from the anchor to the ground along -wheel_up, or ray_length if
+## nothing is within reach.
+func _probe_ground(anchor: Vector3, wheel_up: Vector3, ray_length: float) -> float:
+	var to := anchor - wheel_up * ray_length
+	var query := PhysicsRayQueryParameters3D.create(anchor, to, collision_mask, [get_rid()])
+	var hit := get_world_3d().direct_space_state.intersect_ray(query)
+	return ray_length if hit.is_empty() else anchor.distance_to(hit.position)
 
 
 func _place_wheel_visual(
@@ -182,4 +266,5 @@ func _place_wheel_visual(
 	var pivot := _wheel_pivots[i]
 	pivot.position = _anchors[i] + Vector3.DOWN * flip_sign * extension
 	pivot.rotation.y = steer_angle * flip_sign
-	_wheels[i].roll(linear_velocity.dot(-global_basis.z) * flip_sign * delta)
+	var velocity := linear_velocity if multiplayer.is_server() else net_velocity
+	_wheels[i].roll(velocity.dot(-global_basis.z) * flip_sign * delta)

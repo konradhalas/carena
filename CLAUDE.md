@@ -11,6 +11,13 @@ Multiplayer 3D car arena combat game (shooting + traps) in Godot 4.7, GDScript.
 - **Internet multiplayer, up to ~50 players per match.** Target: dedicated headless server, server-authoritative.
   - Clients send only input (`CarInput`); server simulates physics, hits, damage, traps.
   - Never let client code decide game outcomes (HP, kills, pickups).
+- **Networking** (`scripts/network.gd` autoload `Network`, `scripts/game.gd`, `scenes/game.tscn`):
+  - ENet (UDP), port 7777. Transport is created only in `Network.open_connection()` — a web build would swap ENet for WebSocket/WebRTC there.
+  - Modes: host (listen server, plays too), client, dedicated server (`--server`, headless). Menu (`scenes/menu.tscn`) is the main scene; `scenes/sandbox.tscn` is offline driving (also used by tests).
+  - The game scene opens the connection itself (after its `MultiplayerSpawner` exists), so replicated spawns always have a target node.
+  - Server spawns one car per peer via `PlayerSpawner` (`spawn_function` runs on every peer); car node name = peer id.
+  - Car: server simulates; owning client sends input via unreliable RPC (`_submit_input`, sender validated against `owner_peer_id`), reset via reliable RPC. State replicated through the car's `Sync` node (`net_transform`, `net_velocity`, `net_steer`, ~30 Hz); clients keep cars frozen (kinematic) and smooth towards that state with short extrapolation. No client-side prediction yet → own car reacts with ~RTT delay.
+  - Offline, Godot's default OfflineMultiplayerPeer makes the local peer the server, so the same car code runs unchanged in sandbox/tests.
 - **Input is decoupled from simulation.** `Car` consumes a `CarInput` each tick; locally controlled cars fill it from devices, remote/server cars will fill it from the network. Keep this separation for any new controllable entity.
 
 ## Conventions
@@ -22,6 +29,8 @@ Multiplayer 3D car arena combat game (shooting + traps) in Godot 4.7, GDScript.
 ## Running
 
 - Play: `godot --path .` (or open in editor, F5).
+- Multiplayer locally: `godot --path . -- --host` and `godot --path . -- --join=127.0.0.1`; dedicated server: `godot --headless -- --server [--port=N]`.
+- Unattended clients: add `--bot` (auto-driving) and `--net-log` (prints every car's position every 2 s) — used to verify replication across processes.
 - Import: `godot --headless --import`.
 - Project check (all scripts compile, all scenes load without engine errors): `godot --headless --script res://tools/check_project.gd`.
 - Tests (gdUnit4, vendored in `addons/gdUnit4`): `GODOT_BIN=$(which godot) ./addons/gdUnit4/runtest.sh --headless --ignoreHeadlessMode -a tests`.

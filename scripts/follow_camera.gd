@@ -1,23 +1,30 @@
 extends Camera3D
 ## Chase camera that smoothly follows a target from behind.
 
-@export var target: Node3D
+## Assigning a new target snaps the camera to it on the next physics frame
+## (the target may not be in the tree yet, e.g. right after spawning).
+@export var target: Node3D:
+	set(value):
+		target = value
+		_snap_pending = true
 @export var offset := Vector3(0.0, 5.0, 10.0)
 @export var look_height := 1.5
 @export var follow_speed := 6.0
 
 var _heading := Vector3.FORWARD
+var _snap_pending := true
 
 
 func _ready() -> void:
 	top_level = true
-	if target:
-		global_position = _desired_position()
 
 
 func _physics_process(delta: float) -> void:
-	if not target:
+	if not target or not target.is_inside_tree():
 		return
+	if _snap_pending:
+		_snap_pending = false
+		global_position = _desired_position()
 	global_position = global_position.lerp(
 		_desired_position(), clampf(follow_speed * delta, 0.0, 1.0)
 	)

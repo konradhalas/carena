@@ -5,8 +5,12 @@ config_version=5
 [application]
 
 config/name="Carena"
-run/main_scene="res://scenes/main.tscn"
+run/main_scene="res://scenes/menu.tscn"
 config/features=PackedStringArray("4.7", "Forward Plus")
+
+[autoload]
+
+Network="*res://scripts/network.gd"
 
 [display]
 

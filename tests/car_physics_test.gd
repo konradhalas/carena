@@ -1,8 +1,8 @@
 extends GdUnitTestSuite
-## Behavioural tests for car physics, run against the real main scene
+## Behavioural tests for car physics, run against the offline sandbox scene
 ## (arena + car). Positions refer to the arena layout in scenes/arena.tscn.
 
-const MAIN_SCENE := "res://scenes/main.tscn"
+const SANDBOX_SCENE := "res://scenes/sandbox.tscn"
 const PHYSICS_FPS := 60
 
 var _runner: GdUnitSceneRunner
@@ -10,7 +10,7 @@ var _car: Car
 
 
 func before_test() -> void:
-	_runner = scene_runner(MAIN_SCENE)
+	_runner = scene_runner(SANDBOX_SCENE)
 	_car = _runner.scene().get_node("Car")
 	_car.is_locally_controlled = false
 

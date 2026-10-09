@@ -1,0 +1,17 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/arena.tscn" id="1_arena"]
+[ext_resource type="PackedScene" path="res://scenes/car.tscn" id="2_car"]
+[ext_resource type="Script" path="res://scripts/follow_camera.gd" id="3_cam"]
+
+[node name="Sandbox" type="Node3D"]
+
+[node name="Arena" parent="." instance=ExtResource("1_arena")]
+
+[node name="Car" parent="." instance=ExtResource("2_car")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.2, 30)
+
+[node name="Camera" type="Camera3D" parent="." node_paths=PackedStringArray("target")]
+fov = 70.0
+script = ExtResource("3_cam")
+target = NodePath("../Car")

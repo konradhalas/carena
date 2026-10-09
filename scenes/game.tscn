@@ -1,0 +1,32 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/game.gd" id="1_game"]
+[ext_resource type="PackedScene" path="res://scenes/arena.tscn" id="2_arena"]
+[ext_resource type="Script" path="res://scripts/follow_camera.gd" id="3_cam"]
+
+[node name="Game" type="Node3D"]
+script = ExtResource("1_game")
+
+[node name="Arena" parent="." instance=ExtResource("2_arena")]
+
+[node name="Players" type="Node3D" parent="."]
+
+[node name="PlayerSpawner" type="MultiplayerSpawner" parent="."]
+spawn_path = NodePath("../Players")
+
+[node name="Camera" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.707, 0.707, 0, -0.707, 0.707, 0, 60, 60)
+fov = 70.0
+current = true
+script = ExtResource("3_cam")
+
+[node name="HUD" type="CanvasLayer" parent="."]
+
+[node name="Status" type="Label" parent="HUD"]
+offset_left = 16.0
+offset_top = 12.0
+offset_right = 800.0
+offset_bottom = 40.0
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 6
+text = "..."
