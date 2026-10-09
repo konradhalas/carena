@@ -56,9 +56,13 @@ const FRONT_WHEELS: Array[int] = [0, 1]
 @export var max_steer_angle := 0.6  ## rad at low speed
 @export var high_speed_steer_angle := 0.22  ## rad at max_speed
 ## Rear wheels steer against the fronts by this share of the front angle at
-## low speed (tighter turns), fading to `high_speed_rear_steer` at max_speed.
-@export var low_speed_rear_steer := 0.45
-@export var high_speed_rear_steer := 0.05
+## a standstill (tighter turns), fading out by `rear_steer_fade_speed`.
+@export var low_speed_rear_steer := 0.4
+@export var rear_steer_fade_speed := 12.0
+## Steering never asks for more sideways acceleration than the tyres can give
+## (m/s²), so full lock at speed means a tight but stable arc, not a spin.
+## Lifted while drifting so you can countersteer freely.
+@export var max_cornering_accel := 24.0
 
 @export_group("Tires")
 @export var wheel_radius := 0.6
@@ -68,15 +72,22 @@ const FRONT_WHEELS: Array[int] = [0, 1]
 @export_group("Drift")
 ## Handbrake breaks the rear loose; the slide then holds while you stay on the
 ## throttle at a slip angle, and grip comes back once you straighten out.
-@export var drift_rear_grip := 0.15  ## rear grip while fully drifting
+@export var drift_rear_grip := 0.08  ## rear grip while fully drifting
 @export var drift_front_grip := 0.85  ## share of front grip kept while drifting
 @export var handbrake_deceleration := 14.0  ## locked rear wheels, m/s²
-@export var drift_kick := 2.0  ## yaw help when pulling the handbrake into a turn
+@export var drift_kick := 2.6  ## yaw help when pulling the handbrake into a turn
 @export var drift_hold_slip := 0.18  ## rad of slip angle that sustains a drift on throttle
 @export var drift_sustain_level := 0.6  ## drift amount held while powersliding
 @export var drift_recovery := 2.2  ## per second, grip coming back
 @export var spin_out_slip := 1.25  ## rad; beyond this yaw is damped to avoid spinning out
 @export var spin_damping := 3.0
+
+@export_group("Stability")
+## Outside a handbrake drift, yaw faster than the steering asks for is damped
+## (like ESP), so the car doesn't swap ends on its own.
+@export var yaw_assist := 5.0
+@export var yaw_tolerance := 1.15  ## allowed share above the expected yaw rate
+@export var yaw_margin := 0.25  ## rad/s always allowed on top
 
 @export_group("Suspension")
 @export var suspension_travel := 0.35
@@ -148,6 +159,7 @@ var _respawn_timer := 0.0
 var _respawn_requested := false
 var _bot: BotDriver
 var _drift := 0.0  ## 0 = full grip, 1 = rear fully broken loose
+var _wheelbase := 2.75
 var _effects: CarEffects
 var _suspension: CarSuspension
 var _paint: ShaderMaterial
@@ -178,6 +190,7 @@ func _ready() -> void:
 		_suspension.setup($Visual/Chassis, _wheel_pivots)
 	for pivot in _wheel_pivots:
 		_anchors.append(pivot.position)
+	_wheelbase = absf(_anchors[0].z - _anchors[2].z)
 	net_transform = global_transform
 	health = max_health
 	if spawn_transform == Transform3D():
@@ -411,6 +424,7 @@ func _simulate(delta: float) -> void:
 
 	if grounded > 0:
 		_update_drift(delta, speed, slip_angle, wheel_up)
+		_assist_stability(speed, steer_angle, rear_angle, wheel_up)
 	if is_destroyed:
 		return
 	if grounded == 0 and get_contact_count() > 0:
@@ -490,6 +504,20 @@ func _update_drift(delta: float, speed: float, slip_angle: float, wheel_up: Vect
 		apply_torque(wheel_up * -yaw_rate * spin_damping * mass)
 
 
+## ESP-like yaw limiter, off while drifting so slides stay possible.
+func _assist_stability(
+	speed: float, steer_angle: float, rear_angle: float, wheel_up: Vector3
+) -> void:
+	if _drift > 0.2 or absf(speed) < 3.0 or is_destroyed:
+		return
+	var expected := speed * (tan(steer_angle) - tan(rear_angle)) / _wheelbase
+	var limit := absf(expected) * yaw_tolerance + yaw_margin
+	var yaw_rate := angular_velocity.dot(wheel_up)
+	if absf(yaw_rate) > limit:
+		var excess := yaw_rate - signf(yaw_rate) * limit
+		apply_torque(wheel_up * -excess * yaw_assist * mass)
+
+
 func _tip_off_side() -> void:
 	var up := global_basis.y
 	var target_up := Vector3.UP if up.y >= 0.0 else Vector3.DOWN
@@ -538,13 +566,23 @@ func _flip_sign() -> float:
 
 func _steer_angle(steer: float, speed: float) -> float:
 	var speed_ratio := clampf(absf(speed) / max_speed, 0.0, 1.0)
-	return -steer * lerpf(max_steer_angle, high_speed_steer_angle, speed_ratio)
+	var angle := lerpf(max_steer_angle, high_speed_steer_angle, speed_ratio)
+	if _drift < 0.2 and absf(speed) > 1.0:
+		# Turn radius v²/a must not need more grip than the tyres have. With
+		# rear counter-steer the effective angle is front × (1 + ratio).
+		var rear_ratio := _rear_steer_ratio(speed)
+		var grip_angle := atan(_wheelbase * max_cornering_accel / (speed * speed))
+		angle = minf(angle, grip_angle / (1.0 + rear_ratio))
+	return -steer * angle
 
 
 ## Rear wheels counter-steer at low speed for tighter turns, barely at speed.
 func _rear_steer_angle(front_angle: float, speed: float) -> float:
-	var speed_ratio := clampf(absf(speed) / max_speed, 0.0, 1.0)
-	return -front_angle * lerpf(low_speed_rear_steer, high_speed_rear_steer, speed_ratio)
+	return -front_angle * _rear_steer_ratio(speed)
+
+
+func _rear_steer_ratio(speed: float) -> float:
+	return low_speed_rear_steer * (1.0 - clampf(absf(speed) / rear_steer_fade_speed, 0.0, 1.0))
 
 
 ## Distance from the anchor to the ground along -wheel_up, or ray_length if

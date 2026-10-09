@@ -55,16 +55,22 @@ func test_car_reaches_high_speed_on_open_ground() -> void:
 
 func test_rear_steer_gives_tight_low_speed_turns() -> void:
 	_place(Vector3(-30, 1.4, 35), 0.0)
-	_car.input.throttle = 0.35
 	_car.input.steer = 1.0
-	await _step(seconds(1.5))
+	var cruise := func(): _car.input.throttle = 1.0 if _forward_speed() < 8.0 else 0.0
+	await _step(seconds(1.5), cruise)
 	var bounds := AABB(_car.global_position, Vector3.ZERO)
-	await _step(seconds(4), func(): bounds = bounds.expand(_car.global_position))
+	await _step(
+		seconds(4),
+		func():
+			cruise.call()
+			bounds = bounds.expand(_car.global_position)
+	)
 
 	assert_float(maxf(bounds.size.x, bounds.size.z)).is_less(16.0)
 
 
 func test_handbrake_into_a_turn_starts_a_drift_that_recovers() -> void:
+	_clear_obstacles()
 	_place(Vector3(48, 1.4, 47), PI / 2)
 	_car.input.throttle = 1.0
 	await _step(seconds(1.5))
@@ -82,6 +88,19 @@ func test_handbrake_into_a_turn_starts_a_drift_that_recovers() -> void:
 	assert_float(max_slip[0]).is_less(60.0)  # ...without spinning out
 	assert_float(absf(_slip_degrees())).is_less(5.0)  # grip came back
 	assert_float(_forward_speed()).is_greater(20.0)
+
+
+func test_full_lock_launch_does_not_spin() -> void:
+	# Standing start, full steering lock, full throttle: a tight stable arc,
+	# not a spin.
+	_clear_obstacles()
+	_place(Vector3(-20, 1.4, 20), 0.0)
+	_car.input.throttle = 1.0
+	_car.input.steer = 1.0
+	var max_slip := [0.0]
+	await _step(seconds(3), func(): max_slip[0] = maxf(max_slip[0], absf(_slip_degrees())))
+
+	assert_float(max_slip[0]).is_less(20.0)
 
 
 func test_fast_cornering_without_handbrake_keeps_grip() -> void:
@@ -144,6 +163,13 @@ func _step(frames: int, on_tick := Callable()) -> void:
 		await get_tree().physics_frame
 		if on_tick.is_valid():
 			on_tick.call()
+
+
+## Removes the container stacks so manoeuvres measured over a wide area don't
+## end in a crash.
+func _clear_obstacles() -> void:
+	for group in ["StackNE", "PairNW", "CornerSE", "TowerSW"]:
+		_runner.scene().get_node("Arena/" + group).free()
 
 
 func _place(position: Vector3, yaw: float, roll := 0.0) -> void:
