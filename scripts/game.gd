@@ -4,7 +4,7 @@ extends Node3D
 
 const CAR_SCENE := preload("res://scenes/car.tscn")
 const SPAWN_RADIUS := 45.0
-const SPAWN_HEIGHT := 1.2
+const SPAWN_HEIGHT := 1.2  ## above the terrain at the spawn point
 const GOLDEN_ANGLE := 2.39996
 const STATE_LOG_INTERVAL := 2.0
 
@@ -12,6 +12,7 @@ var _next_spawn_index := 0
 var _state_log_timer := 0.0
 
 @onready var _players: Node3D = $Players
+@onready var _terrain: ArenaTerrain = $Arena/Terrain
 @onready var _spawner: MultiplayerSpawner = $PlayerSpawner
 @onready var _camera: Camera3D = $Camera
 @onready var _hud: CanvasLayer = $HUD
@@ -55,7 +56,7 @@ func _spawn_car_for(peer_id: int) -> void:
 	var angle := _next_spawn_index * GOLDEN_ANGLE
 	_next_spawn_index += 1
 	var position := Vector3(cos(angle), 0.0, sin(angle)) * SPAWN_RADIUS
-	position.y = SPAWN_HEIGHT
+	position.y = _terrain.height_at(position.x, position.z) + SPAWN_HEIGHT
 	var yaw := atan2(cos(angle), sin(angle))
 	_spawner.spawn({"peer_id": peer_id, "position": position, "yaw": yaw})
 

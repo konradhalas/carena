@@ -1,24 +1,27 @@
 extends GdUnitTestSuite
 ## Behavioural tests for car physics, run against the offline sandbox scene
-## (arena + car). Positions refer to the arena layout in scenes/arena.tscn.
+## (arena + car). Positions refer to the arena layout in scenes/arena.tscn;
+## the floor is bumpy, so heights are measured above the terrain under the car.
 
 const SANDBOX_SCENE := "res://scenes/sandbox.tscn"
 const PHYSICS_FPS := 60
 
 var _runner: GdUnitSceneRunner
 var _car: Car
+var _terrain: ArenaTerrain
 
 
 func before_test() -> void:
 	_runner = scene_runner(SANDBOX_SCENE)
 	_car = _runner.scene().get_node("Car")
+	_terrain = _runner.scene().get_node("Arena/Terrain")
 	_car.is_locally_controlled = false
 
 
 func test_car_settles_on_suspension_at_rest() -> void:
 	await _step(seconds(2))
 
-	assert_float(_car.global_position.y).is_between(0.7, 0.9)
+	assert_float(_height_above_ground()).is_between(0.6, 1.0)
 	assert_float(_up()).is_greater(0.99)
 	assert_float(_car.linear_velocity.length()).is_less(0.05)
 
@@ -38,7 +41,7 @@ func test_car_jumps_ramp_and_lands_on_wheels() -> void:
 	await _step(seconds(5), func(): max_height[0] = maxf(max_height[0], _car.global_position.y))
 
 	assert_float(max_height[0]).is_greater(4.0)
-	assert_float(_car.global_position.y).is_less(1.0)
+	assert_float(_height_above_ground()).is_less(1.2)
 	assert_float(_up()).is_greater(0.95)
 
 
@@ -96,6 +99,12 @@ func _place(position: Vector3, yaw: float, roll := 0.0) -> void:
 	_car.global_transform = Transform3D(Basis.from_euler(Vector3(0, yaw, roll)), position)
 	_car.linear_velocity = Vector3.ZERO
 	_car.angular_velocity = Vector3.ZERO
+
+
+## Axle height above the terrain directly below the car (~0.8 m at rest).
+func _height_above_ground() -> float:
+	var p := _car.global_position
+	return p.y - _terrain.height_at(p.x, p.z)
 
 
 func _up() -> float:
