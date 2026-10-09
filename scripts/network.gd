@@ -4,7 +4,8 @@ extends Node
 ## The transport (ENet) is created only in open_connection(), so switching to
 ## WebSocket/WebRTC for a web build should only touch this file.
 ##
-## Command line (after `--`): --server, --host, --join[=ADDRESS], --port=N, --bot,
+## Command line (after `--`): --server, --host, --join[=ADDRESS], --port=N, --name=NICK, --bot,
+## --match-time=SECONDS, --kill-limit=N (server match rules),
 ## --net-log (print every car's state every 2 s, for debugging replication)
 
 enum Mode { OFFLINE, HOST, CLIENT, DEDICATED_SERVER }
@@ -24,6 +25,11 @@ var port := DEFAULT_PORT
 ## Last reason a session ended, shown by the menu.
 var last_message := ""
 var log_state := false
+## Nickname shown to other players (the menu remembers it between runs).
+var player_name := ""
+## Server match rule overrides from the command line (0 = scene default).
+var match_time := 0.0
+var kill_limit := 0
 
 
 func _ready() -> void:
@@ -36,6 +42,9 @@ func _ready() -> void:
 	var args := _user_args()
 	CarInput.bot_mode = args.has("bot")
 	log_state = args.has("net-log")
+	player_name = args.get("name", "Bot" if CarInput.bot_mode else "")
+	match_time = float(args.get("match-time", 0))
+	kill_limit = int(args.get("kill-limit", 0))
 	port = int(args.get("port", DEFAULT_PORT))
 	if args.has("server"):
 		start_game.call_deferred(Mode.DEDICATED_SERVER)

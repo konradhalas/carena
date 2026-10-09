@@ -16,7 +16,8 @@ extends RigidBody3D
 ## Offline (sandbox, tests) the default OfflineMultiplayerPeer makes this peer
 ## the server, so the same code runs unchanged.
 
-signal destroyed
+## Server only. killer_peer_id is 0 when nobody gets the credit.
+signal destroyed(killer_peer_id: int)
 ## Health went down (on every peer, as health replicates). Used for feedback.
 signal damaged(amount: float)
 
@@ -110,6 +111,8 @@ const FRONT_WHEELS: Array[int] = [0, 1]
 @export var fire_interval := 0.14  ## seconds between shots
 @export var respawn_delay := 3.0
 @export var explosion_impulse := 7.0  ## upward kick on destruction, m/s
+## Seconds of invulnerability after (re)spawning; matches set it, sandbox leaves it off.
+@export var spawn_protection := 0.0
 
 @export_group("Network")
 @export var max_extrapolation := 0.25  ## seconds to dead-reckon remote cars past the last snapshot
@@ -145,6 +148,15 @@ var is_destroyed := false:
 		is_destroyed = value
 		_show_destroyed_state()
 
+## Shown above the car to other players.
+var display_name := "":
+	set(value):
+		display_name = value
+		if _nameplate:
+			_nameplate.text = value
+## When false (e.g. between matches) the car can't be damaged.
+var can_take_damage := true
+
 ## Where the car comes back after being destroyed (defaults to where it started).
 var spawn_transform := Transform3D()
 
@@ -169,6 +181,8 @@ var _effects: CarEffects
 var _suspension: CarSuspension
 var _audio: CarAudio
 var _wheels_touching := 0  ## counted by the wheel visuals each tick
+var _protected_time := 0.0  ## runs on every peer: server for damage, all for the blink
+var _nameplate: Label3D
 var _paint: ShaderMaterial
 
 @onready var _wheel_pivots: Array[Node3D] = [
@@ -197,6 +211,8 @@ func _ready() -> void:
 		_suspension.setup($Visual/Chassis, _wheel_pivots)
 		_audio = CarAudio.new()
 		add_child(_audio)
+		_build_nameplate()
+	_protected_time = spawn_protection
 	for pivot in _wheel_pivots:
 		_anchors.append(pivot.position)
 	_wheelbase = absf(_anchors[0].z - _anchors[2].z)
@@ -212,6 +228,16 @@ func _ready() -> void:
 			# Remote cars on clients never simulate; they replay server snapshots.
 			freeze_mode = RigidBody3D.FREEZE_MODE_KINEMATIC
 			freeze = true
+
+
+func _process(delta: float) -> void:
+	_protected_time = maxf(_protected_time - delta, 0.0)
+	if _nameplate:
+		# Billboard label above the car in world space, whichever side is up.
+		_nameplate.global_position = global_position + Vector3.UP * 2.2
+		_nameplate.visible = not is_locally_controlled and not display_name.is_empty()
+	# Blink while spawn-protected.
+	$Visual/Chassis.visible = _protected_time <= 0.0 or fmod(_protected_time, 0.2) > 0.08
 
 
 func _physics_process(delta: float) -> void:
@@ -322,8 +348,8 @@ func _request_reset() -> void:
 
 
 ## Server only. Returns true when this hit destroyed the car.
-func apply_damage(amount: float) -> bool:
-	if is_destroyed:
+func apply_damage(amount: float, attacker_peer_id := 0) -> bool:
+	if is_destroyed or not can_take_damage or _protected_time > 0.0:
 		return false
 	health = maxf(health - amount, 0.0)
 	if health > 0.0:
@@ -334,7 +360,7 @@ func apply_damage(amount: float) -> bool:
 	apply_central_impulse(Vector3.UP * explosion_impulse * mass)
 	var spin := Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1))
 	apply_torque_impulse(spin * mass * 2.0)
-	destroyed.emit()
+	destroyed.emit(attacker_peer_id)
 	return true
 
 
@@ -387,10 +413,39 @@ func _show_destroyed_state() -> void:
 		wreck.albedo_color = WRECK_COLOR
 		wreck.roughness = 1.0
 		_body_mesh.material_override = wreck
-		Effects.explosion(get_parent(), global_position)
-		Sfx.play_at(get_parent(), "explosion", global_position, 6.0, 0.05)
+		Effects.explosion(_effects_root(), global_position)
+		Sfx.play_at(_effects_root(), "explosion", global_position, 6.0, 0.05)
 	else:
 		_body_mesh.material_override = _paint
+		_protected_time = spawn_protection
+
+
+## Where to put short-lived effects: the scene root, never next to the car —
+## in a match the car's parent holds only replicated cars.
+func _effects_root() -> Node:
+	var scene := get_tree().current_scene
+	return scene if scene else get_parent()
+
+
+## Puts the car back at its spawn point, repaired (server only).
+func respawn_now() -> void:
+	_respawn_timer = 0.0
+	health = max_health
+	is_destroyed = false
+	_respawn_requested = true
+
+
+func _build_nameplate() -> void:
+	_nameplate = Label3D.new()
+	_nameplate.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_nameplate.no_depth_test = false
+	_nameplate.font_size = 48
+	_nameplate.pixel_size = 0.01
+	_nameplate.outline_size = 12
+	_nameplate.modulate = Color(1, 1, 1, 0.9)
+	_nameplate.top_level = true
+	_nameplate.text = display_name
+	add_child(_nameplate)
 
 
 func _simulate(delta: float) -> void:

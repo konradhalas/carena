@@ -1,10 +1,25 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://scripts/game.gd" id="1_game"]
 [ext_resource type="PackedScene" path="res://scenes/arena.tscn" id="2_arena"]
 [ext_resource type="Script" path="res://scripts/follow_camera.gd" id="3_cam"]
 [ext_resource type="PackedScene" path="res://scenes/projectiles.tscn" id="4_proj"]
 [ext_resource type="PackedScene" path="res://scenes/hud.tscn" id="5_hud"]
+[ext_resource type="Script" path="res://scripts/match/match_state.gd" id="6_match"]
+
+[sub_resource type="SceneReplicationConfig" id="MatchRepl"]
+properties/0/path = NodePath(".:phase")
+properties/0/spawn = true
+properties/0/replication_mode = 2
+properties/1/path = NodePath(".:time_left")
+properties/1/spawn = true
+properties/1/replication_mode = 1
+properties/2/path = NodePath(".:scores")
+properties/2/spawn = true
+properties/2/replication_mode = 2
+properties/3/path = NodePath(".:winner_name")
+properties/3/spawn = true
+properties/3/replication_mode = 2
 
 [node name="Game" type="Node3D"]
 script = ExtResource("1_game")
@@ -12,6 +27,13 @@ script = ExtResource("1_game")
 [node name="Arena" parent="." instance=ExtResource("2_arena")]
 
 [node name="Players" type="Node3D" parent="."]
+
+[node name="MatchState" type="Node" parent="."]
+script = ExtResource("6_match")
+
+[node name="Sync" type="MultiplayerSynchronizer" parent="MatchState"]
+replication_interval = 0.1
+replication_config = SubResource("MatchRepl")
 
 [node name="Projectiles" parent="." instance=ExtResource("4_proj")]
 

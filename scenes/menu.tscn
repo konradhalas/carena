@@ -39,6 +39,13 @@ theme_override_font_sizes/font_size = 56
 text = "CARENA"
 horizontal_alignment = 1
 
+[node name="Name" type="LineEdit" parent="Center/Panel"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+placeholder_text = "Your name"
+max_length = 16
+
 [node name="Host" type="Button" parent="Center/Panel"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 44)

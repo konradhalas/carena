@@ -69,7 +69,8 @@ func _step_shots(delta: float) -> void:
 		if target:
 			var hit_offset: Vector3 = hit.position - target.global_position
 			target.apply_impulse(shot.velocity.normalized() * hit_impulse, hit_offset)
-			var killed := target.apply_damage(damage)
+			var shooter_id := shot.shooter.owner_peer_id if is_instance_valid(shot.shooter) else 0
+			var killed := target.apply_damage(damage, shooter_id)
 			if killed and is_instance_valid(shot.shooter):
 				shot.shooter.kills += 1
 
