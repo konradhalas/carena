@@ -110,6 +110,7 @@ var _fire_cooldown := 0.0
 var _respawn_timer := 0.0
 var _respawn_requested := false
 var _bot: BotDriver
+var _effects: CarEffects
 
 @onready var _wheel_pivots: Array[Node3D] = [
 	$Visual/WheelFL, $Visual/WheelFR, $Visual/WheelRL, $Visual/WheelRR
@@ -125,6 +126,9 @@ var _bot: BotDriver
 
 func _ready() -> void:
 	add_to_group("cars")
+	if DisplayServer.get_name() != "headless":
+		_effects = CarEffects.new()
+		add_child(_effects)
 	for pivot in _wheel_pivots:
 		_anchors.append(pivot.position)
 	net_transform = global_transform
@@ -449,5 +453,10 @@ func _place_wheel_visual(
 	var pivot := _wheel_pivots[i]
 	pivot.position = _anchors[i] + Vector3.DOWN * flip_sign * extension
 	pivot.rotation.y = steer_angle * flip_sign
-	var velocity := linear_velocity if multiplayer.is_server() else net_velocity
+	var velocity := linear_velocity if multiplayer.is_server() or _is_predicted() else net_velocity
 	_wheels[i].roll(velocity.dot(-global_basis.z) * flip_sign * delta)
+	if _effects:
+		var wheel_up := global_basis.y * flip_sign
+		var contact := global_transform * _anchors[i] - wheel_up * (extension + wheel_radius)
+		var grounded := extension < suspension_travel - 0.001
+		_effects.wheel_contact(i, grounded, contact, wheel_up, velocity, global_basis.x)

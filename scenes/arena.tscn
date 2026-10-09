@@ -1,9 +1,10 @@
-[gd_scene load_steps=14 format=3]
+[gd_scene load_steps=15 format=3]
 
 [ext_resource type="Material" path="res://materials/dirt.tres" id="1_dirt"]
 [ext_resource type="Material" path="res://materials/padding.tres" id="2_padding"]
 [ext_resource type="PackedScene" path="res://scenes/shipping_container.tscn" id="3_container"]
 [ext_resource type="Script" path="res://scripts/arena/arena_dressing.gd" id="4_dressing"]
+[ext_resource type="Script" path="res://scripts/effects/tire_tracks.gd" id="5_tracks"]
 
 [sub_resource type="BoxMesh" id="BoxMesh_floor"]
 material = ExtResource("1_dirt")
@@ -52,6 +53,9 @@ shadow_enabled = true
 
 [node name="Dressing" type="Node3D" parent="."]
 script = ExtResource("4_dressing")
+
+[node name="TireTracks" type="Node3D" parent="." groups=["tire_tracks"]]
+script = ExtResource("5_tracks")
 
 [node name="Floor" type="StaticBody3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
