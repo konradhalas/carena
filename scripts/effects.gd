@@ -31,6 +31,7 @@ static func _burst(
 	var root := Node3D.new()
 	parent.add_child(root)
 	root.global_position = position
+	root.reset_physics_interpolation()  # don't streak in from the origin
 
 	var sphere := SphereMesh.new()
 	sphere.radius = size * 0.5

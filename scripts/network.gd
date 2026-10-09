@@ -104,6 +104,7 @@ func leave(message := "") -> void:
 		get_tree().quit(1 if message else 0)
 		return
 	mode = Mode.OFFLINE
+	NetClock.reset()
 	get_tree().change_scene_to_file.call_deferred(MENU_SCENE)
 
 

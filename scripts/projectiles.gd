@@ -88,6 +88,7 @@ func _show_tracer(origin: Vector3, velocity: Vector3, shooter_path: NodePath) ->
 	add_child(tracer.node)
 	tracer.node.global_position = origin
 	_orient(tracer.node, velocity)
+	tracer.node.reset_physics_interpolation()  # don't streak in from the origin
 	_tracers.append(tracer)
 
 

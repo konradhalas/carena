@@ -7,15 +7,26 @@ extends RigidBody3D
 ## vertically symmetric around the axles and wheels stick out on both sides, so
 ## when the car lands on its roof the rays simply flip and it keeps driving.
 ##
-## Networking: only the server simulates physics. The owning client sends its
-## input to the server; every client receives the car's state through the
-## MultiplayerSynchronizer (net_* properties) and smooths towards it. Offline
-## (sandbox, tests) the default OfflineMultiplayerPeer makes this peer the server.
+## Networking: the server is authoritative. Each client simulates its own car
+## immediately (prediction) and sends numbered inputs to the server; the
+## server replicates state (net_* properties via the "Sync" node) tagged with
+## its physics tick and the last input it applied. The owning client
+## reconciles against that (PredictionReconciler); other clients render the
+## car slightly in the past, interpolating between snapshots (SnapshotBuffer).
+## Offline (sandbox, tests) the default OfflineMultiplayerPeer makes this peer
+## the server, so the same code runs unchanged.
 
 signal destroyed
 
 const WHEEL_COUNT := 4
 const WRECK_COLOR := Color(0.07, 0.07, 0.07)
+## Each input packet also carries this many previous inputs, so a lost packet
+## doesn't leave a gap in the server's input sequence.
+const INPUT_REDUNDANCY := 3
+## The server consumes exactly one queued input per physics tick (so its steps
+## line up with the client's prediction); beyond this backlog it skips ahead
+## to keep input latency low.
+const MAX_INPUT_QUEUE := 4
 const FRONT_WHEELS: Array[int] = [0, 1]
 
 @export_group("Engine")
@@ -52,9 +63,10 @@ const FRONT_WHEELS: Array[int] = [0, 1]
 @export var respawn_delay := 3.0
 @export var explosion_impulse := 7.0  ## upward kick on destruction, m/s
 
-@export_group("Network smoothing")
-@export var follow_sharpness := 15.0  ## how fast clients converge on server state
-@export var max_extrapolation := 0.25  ## seconds to dead-reckon past the last update
+@export_group("Network")
+@export var max_extrapolation := 0.25  ## seconds to dead-reckon remote cars past the last snapshot
+@export var prediction_correction_rate := 0.15  ## share of own-car error fixed per tick
+@export var prediction_snap_distance := 4.0  ## own-car errors above this (m) snap at once
 
 @export_group("")
 ## When true, the car reads input from this machine's keyboard/gamepad.
@@ -67,7 +79,10 @@ var input := CarInput.new()
 # Server-authoritative state, replicated to clients by the "Sync" node.
 var net_transform := Transform3D()
 var net_velocity := Vector3.ZERO
+var net_angular_velocity := Vector3.ZERO
 var net_steer := 0.0
+var net_tick := 0  ## server physics tick the net_* state belongs to
+var net_input_seq := 0  ## last owner input the server had applied in that state
 var health := max_health
 var kills := 0
 var is_destroyed := false:
@@ -83,7 +98,14 @@ var spawn_transform := Transform3D()
 var _anchors: Array[Vector3] = []  ## local axle points, FL, FR, RL, RR
 var _stuck_time := 0.0
 var _flip_requested := false
-var _since_sync := 0.0
+var _input_seq := 0  ## owning client: sequence number of the input being applied
+var _sent_inputs: Array[PackedFloat32Array] = []  ## owning client: newest last
+var _last_received_seq := 0  ## server: newest input seq received from the owner
+var _applied_seq := 0  ## server: input seq used during the last physics step
+var _input_queue: Array[Array] = []  ## server: [seq, CarInput], oldest first
+var _reset_pending := false
+var _snapshots := SnapshotBuffer.new()
+var _prediction := PredictionReconciler.new()
 var _fire_cooldown := 0.0
 var _respawn_timer := 0.0
 var _respawn_requested := false
@@ -110,32 +132,75 @@ func _ready() -> void:
 	if spawn_transform == Transform3D():
 		spawn_transform = global_transform
 	if not multiplayer.is_server():
-		# Clients never simulate: the body just follows replicated state.
-		freeze_mode = RigidBody3D.FREEZE_MODE_KINEMATIC
-		freeze = true
-		$Sync.synchronized.connect(func(): _since_sync = 0.0)
+		$Sync.synchronized.connect(_on_server_state)
+		_prediction.correction_rate = prediction_correction_rate
+		_prediction.snap_distance = prediction_snap_distance
+		if not _is_predicted():
+			# Remote cars on clients never simulate; they replay server snapshots.
+			freeze_mode = RigidBody3D.FREEZE_MODE_KINEMATIC
+			freeze = true
 
 
 func _physics_process(delta: float) -> void:
+	if multiplayer.is_server():
+		_server_tick(delta)
+	elif _is_predicted():
+		_predicted_tick(delta)
+	else:
+		_follow_snapshots()
+		_update_wheels_visual_only(delta)
+
+
+func _server_tick(delta: float) -> void:
+	# The body now holds the result of the last physics step: publish it with
+	# the input that produced it, then apply the newest input for the next step.
+	net_transform = global_transform
+	net_velocity = linear_velocity
+	net_angular_velocity = angular_velocity
+	net_tick = Engine.get_physics_frames()
+	net_input_seq = _applied_seq
+
 	if is_locally_controlled:
 		input = _read_local_input(delta)
-		if not multiplayer.is_server():
-			_submit_input.rpc_id(1, input.throttle, input.steer, input.handbrake, input.fire)
-			if input.reset:
-				_request_reset.rpc_id(1)
-
-	if multiplayer.is_server():
-		if is_destroyed:
-			input = CarInput.new()  # wrecks don't drive or shoot
-			_update_respawn(delta)
-		_update_weapon(delta)
-		_simulate(delta)
-		net_transform = global_transform
-		net_velocity = linear_velocity
-		net_steer = input.steer
 	else:
-		_follow_server(delta)
-		_update_wheels_visual_only(delta)
+		_consume_queued_input()
+	if is_destroyed:
+		input = CarInput.new()  # wrecks don't drive or shoot
+		_update_respawn(delta)
+	_update_weapon(delta)
+	_simulate(delta)
+	net_steer = input.steer
+
+
+func _predicted_tick(delta: float) -> void:
+	_prediction.record(_input_seq, global_transform, linear_velocity, angular_velocity)
+	_input_seq += 1
+	input = _read_local_input(delta)
+	_sent_inputs.append(input.encode())
+	if _sent_inputs.size() > INPUT_REDUNDANCY:
+		_sent_inputs.pop_front()
+	var packed := PackedFloat32Array()
+	for encoded in _sent_inputs:
+		packed.append_array(encoded)
+	_submit_inputs.rpc_id(1, _input_seq, packed)
+	if input.reset:
+		_request_reset.rpc_id(1)
+	if is_destroyed:
+		input = CarInput.new()
+	_simulate(delta)
+
+
+## Owning client simulates its car locally; everyone else only replays it.
+func _is_predicted() -> bool:
+	return is_locally_controlled and not multiplayer.is_server()
+
+
+func _on_server_state() -> void:
+	NetClock.observe_server_tick(net_tick)
+	if _is_predicted():
+		_prediction.reconcile(net_input_seq, net_transform, net_velocity, net_angular_velocity)
+	else:
+		_snapshots.push(net_tick, net_transform, net_velocity)
 
 
 func _read_local_input(delta: float) -> CarInput:
@@ -146,20 +211,34 @@ func _read_local_input(delta: float) -> CarInput:
 	return _bot.drive(self, delta)
 
 
+## Owner sends its newest input (seq) plus the ones before it, oldest first.
 @rpc("any_peer", "call_remote", "unreliable_ordered")
-func _submit_input(throttle: float, steer: float, handbrake: bool, fire: bool) -> void:
-	if multiplayer.get_remote_sender_id() != owner_peer_id:
+func _submit_inputs(newest_seq: int, packed: PackedFloat32Array) -> void:
+	if multiplayer.get_remote_sender_id() != owner_peer_id or packed.size() % 3 != 0:
 		return
-	input.throttle = clampf(throttle, -1.0, 1.0)
-	input.steer = clampf(steer, -1.0, 1.0)
-	input.handbrake = handbrake
-	input.fire = fire
+	var count := packed.size() / 3
+	for i in count:
+		var seq := newest_seq - (count - 1 - i)
+		if seq > _last_received_seq:
+			_last_received_seq = seq
+			_input_queue.append([seq, CarInput.decode(packed, i * 3)])
+
+
+## Server: take the next input in sequence; when starved, keep the last one.
+func _consume_queued_input() -> void:
+	if _input_queue.is_empty():
+		return
+	while _input_queue.size() > MAX_INPUT_QUEUE:
+		_input_queue.pop_front()
+	var entry: Array = _input_queue.pop_front()
+	_applied_seq = entry[0]
+	input = entry[1]
 
 
 @rpc("any_peer", "call_remote", "reliable")
 func _request_reset() -> void:
 	if multiplayer.get_remote_sender_id() == owner_peer_id:
-		input.reset = true
+		_reset_pending = true
 
 
 ## Server only. Returns true when this hit destroyed the car.
@@ -264,12 +343,15 @@ func _simulate(delta: float) -> void:
 
 
 func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
+	if _is_predicted() and _prediction.apply(state):
+		reset_physics_interpolation.call_deferred()
 	if _respawn_requested:
 		_respawn_requested = false
 		_flip_requested = false
 		state.transform = spawn_transform
 		state.linear_velocity = Vector3.ZERO
 		state.angular_velocity = Vector3.ZERO
+		reset_physics_interpolation.call_deferred()
 		return
 	if not _flip_requested:
 		return
@@ -316,18 +398,17 @@ func _tip_off_side() -> void:
 func _update_recovery(grounded_wheels: int, delta: float) -> void:
 	var stuck := grounded_wheels == 0 and linear_velocity.length() < 1.0
 	_stuck_time = _stuck_time + delta if stuck else 0.0
-	if input.reset or _stuck_time > auto_flip_delay:
+	if input.reset or _reset_pending or _stuck_time > auto_flip_delay:
 		_stuck_time = 0.0
 		_flip_requested = true
-		input.reset = false  # one-shot; remote input persists between packets
+		_reset_pending = false
 
 
-func _follow_server(delta: float) -> void:
-	_since_sync += delta
-	var target := net_transform
-	target.origin += net_velocity * minf(_since_sync, max_extrapolation)
-	var weight := clampf(follow_sharpness * delta, 0.0, 1.0)
-	global_transform = global_transform.interpolate_with(target, weight)
+func _follow_snapshots() -> void:
+	var max_ticks := max_extrapolation * Engine.physics_ticks_per_second
+	var sampled: Variant = _snapshots.sample(NetClock.render_tick(), max_ticks)
+	if sampled != null:
+		global_transform = sampled
 
 
 func _update_wheels_visual_only(delta: float) -> void:

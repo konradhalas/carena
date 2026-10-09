@@ -14,6 +14,23 @@ var reset := false  ## put the car back on its wheels
 var fire := false
 
 
+## Compact network form: [throttle, steer, flags]. Reset travels separately
+## (reliable RPC), since it's one-shot.
+func encode() -> PackedFloat32Array:
+	var flags := (1 if handbrake else 0) | (2 if fire else 0)
+	return PackedFloat32Array([throttle, steer, flags])
+
+
+static func decode(data: PackedFloat32Array, offset := 0) -> CarInput:
+	var input := CarInput.new()
+	input.throttle = clampf(data[offset], -1.0, 1.0)
+	input.steer = clampf(data[offset + 1], -1.0, 1.0)
+	var flags := int(data[offset + 2])
+	input.handbrake = flags & 1 != 0
+	input.fire = flags & 2 != 0
+	return input
+
+
 static func from_local_devices() -> CarInput:
 	var input := CarInput.new()
 	input.throttle = Input.get_axis("car_reverse", "car_accelerate")

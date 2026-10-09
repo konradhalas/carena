@@ -16,7 +16,12 @@ Multiplayer 3D car arena combat game (shooting + traps) in Godot 4.7, GDScript.
   - Modes: host (listen server, plays too), client, dedicated server (`--server`, headless). Menu (`scenes/menu.tscn`) is the main scene; `scenes/sandbox.tscn` is offline driving (also used by tests).
   - The game scene opens the connection itself (after its `MultiplayerSpawner` exists), so replicated spawns always have a target node.
   - Server spawns one car per peer via `PlayerSpawner` (`spawn_function` runs on every peer); car node name = peer id.
-  - Car: server simulates; owning client sends input via unreliable RPC (`_submit_input`, sender validated against `owner_peer_id`), reset via reliable RPC. State replicated through the car's `Sync` node (`net_transform`, `net_velocity`, `net_steer`, ~30 Hz); clients keep cars frozen (kinematic) and smooth towards that state with short extrapolation. No client-side prediction yet → own car reacts with ~RTT delay.
+  - Car: server is authoritative. State replicates through the car's `Sync` node (`net_*`, ~30 Hz) tagged with the server physics tick (`net_tick`) and the last owner input the server applied (`net_input_seq`).
+  - Own car on a client = **client-side prediction** (`scripts/net/prediction_reconciler.gd`): the client simulates it immediately with its own input, sends numbered inputs (each packet repeats the previous 2, `_submit_inputs`, sender validated against `owner_peer_id`), and reconciles against server state for the same input seq: small errors blend in, large ones (> 4 m, e.g. respawn) snap. No rewind/replay — history is shifted instead.
+  - Server consumes exactly one queued input per physics tick (`_consume_queued_input`) so its steps line up with the client's; it skips ahead if the queue grows past 4. Don't go back to "apply latest input" — that made predictions disagree by one tick whenever packets bunched up.
+  - Remote cars on a client = **snapshot interpolation** (`scripts/net/snapshot_buffer.gd`): frozen kinematic bodies rendered ~6 ticks in the past (`NetClock.render_tick()`), interpolating between snapshots; brief extrapolation only when snapshots run out.
+  - `NetClock` (static, not the autoload) estimates the server tick, so `Car` doesn't depend on the `Network` autoload (scripts run via `--script`, including gdUnit, have no autoloads).
+  - **Physics interpolation is on** (project setting). Anything moved in `_physics_process` renders smoothly; after teleporting or spawning a node at a position, call `reset_physics_interpolation()` or it streaks.
   - Offline, Godot's default OfflineMultiplayerPeer makes the local peer the server, so the same car code runs unchanged in sandbox/tests.
 - **Combat** (`scripts/projectiles.gd`, `scripts/effects.gd`, combat section of `scripts/car.gd`):
   - Weapon fires from the `Muzzle` marker on the front bumper at axle height — the car's centre of symmetry — along the car's forward axis, so it works identically on wheels or roof. Keep any future weapon/trap attachment points symmetric for the same reason.
@@ -37,6 +42,7 @@ Multiplayer 3D car arena combat game (shooting + traps) in Godot 4.7, GDScript.
 - Play: `godot --path .` (or open in editor, F5).
 - Multiplayer locally: `godot --path . -- --host` and `godot --path . -- --join=127.0.0.1`; dedicated server: `godot --headless -- --server [--port=N]`.
 - Unattended clients: add `--bot` (auto-driving) and `--net-log` (prints every car's position every 2 s) — used to verify replication across processes.
+- Netcode smoothness: `tools/net/measure.sh [ONE_WAY_DELAY_MS JITTER_MS]` (e.g. `50 10` ≈ 100 ms RTT, via `tools/net/lag_proxy.py`) prints on-screen jitter for own/remote/offline cars and prediction correction size. Run it before/after touching netcode; smooth ≈ 1–2 % jitter.
 - Import: `godot --headless --import`.
 - Project check (all scripts compile, all scenes load without engine errors): `godot --headless --script res://tools/check_project.gd`.
 - Tests (gdUnit4, vendored in `addons/gdUnit4`): `GODOT_BIN=$(which godot) ./addons/gdUnit4/runtest.sh --headless --ignoreHeadlessMode -a tests`.
