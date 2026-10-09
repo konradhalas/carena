@@ -59,15 +59,20 @@ const FRONT_WHEELS: Array[int] = [0, 1]
 ## a standstill (tighter turns), fading out by `rear_steer_fade_speed`.
 @export var low_speed_rear_steer := 0.4
 @export var rear_steer_fade_speed := 12.0
-## Steering never asks for more sideways acceleration than the tyres can give
-## (m/s²), so full lock at speed means a tight but stable arc, not a spin.
-## Lifted while drifting so you can countersteer freely.
-@export var max_cornering_accel := 24.0
+## Safety net: steering never asks for much more sideways acceleration than
+## this (m/s²). Set above what the tyres hold, so it only trims extreme lock
+## at speed; the front/rear grip balance does the real work. Lifted while
+## drifting so you can countersteer freely.
+@export var max_cornering_accel := 55.0
 
 @export_group("Tires")
 @export var wheel_radius := 0.6
 @export var grip := 0.6  ## 0..1, share of sideways slip removed per tick
-@export var tire_friction := 1.6  ## caps grip/drive force at this × load
+## Caps grip/drive force at this × load (arcade: well above real tyres).
+@export var tire_friction := 2.6
+## Rear tyres hold this much more than the fronts, so when a turn asks too
+## much the nose slides wide (safe understeer) instead of the tail (spin).
+@export var rear_grip_bias := 1.3
 
 @export_group("Drift")
 ## Handbrake breaks the rear loose; the slide then holds while you stay on the
@@ -77,7 +82,7 @@ const FRONT_WHEELS: Array[int] = [0, 1]
 @export var handbrake_deceleration := 14.0  ## locked rear wheels, m/s²
 @export var drift_kick := 2.6  ## yaw help when pulling the handbrake into a turn
 @export var drift_hold_slip := 0.18  ## rad of slip angle that sustains a drift on throttle
-@export var drift_sustain_level := 0.6  ## drift amount held while powersliding
+@export var drift_sustain_level := 0.85  ## drift amount held while powersliding
 @export var drift_recovery := 2.2  ## per second, grip coming back
 @export var spin_out_slip := 1.25  ## rad; beyond this yaw is damped to avoid spinning out
 @export var spin_damping := 3.0
@@ -405,17 +410,20 @@ func _simulate(delta: float) -> void:
 
 		var wheel_forward := forward.rotated(wheel_up, wheel_angle)
 		var wheel_right := wheel_forward.cross(wheel_up)
+		var bias := 1.0 if is_front else rear_grip_bias
 		var max_tire_force := tire_friction * maxf(spring, resting_load * 0.25)
+		var max_lateral_force := max_tire_force * bias
 
 		# Sideways grip. Applied at the axle (≈ centre of mass), so cornering
 		# alone doesn't roll the car — flips come from terrain, not turning.
 		var wheel_grip := (
 			grip * lerpf(1.0, drift_front_grip, _drift)
 			if is_front
-			else lerpf(grip, drift_rear_grip, _drift)
+			else lerpf(minf(grip * bias, 1.0), drift_rear_grip, _drift)
 		)
 		var lateral := -point_velocity.dot(wheel_right) * wheel_grip * mass_per_wheel / delta
-		apply_force(wheel_right * clampf(lateral, -max_tire_force, max_tire_force), offset)
+		lateral = clampf(lateral, -max_lateral_force, max_lateral_force)
+		apply_force(wheel_right * lateral, offset)
 
 		var longitudinal := _longitudinal_force(
 			point_velocity.dot(wheel_forward), speed, mass_per_wheel, delta, is_front

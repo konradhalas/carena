@@ -103,6 +103,28 @@ func test_full_lock_launch_does_not_spin() -> void:
 	assert_float(max_slip[0]).is_less(20.0)
 
 
+func test_car_still_turns_tightly_at_speed() -> void:
+	# Full lock at a held 25 m/s must give a usable turn, not a wide arc.
+	_clear_obstacles()
+	_place(Vector3(45, 1.4, 45), PI / 2)
+	_car.linear_velocity = Vector3(-25, 0, 0)
+	var hold := func(): _car.input.throttle = clampf((25.0 - _forward_speed()) * 0.5, -1.0, 1.0)
+	await _step(seconds(0.3), hold)
+	_car.input.steer = 1.0
+	await _step(seconds(0.7), hold)
+	var yaw := [0.0]
+	var frames := seconds(1.5)
+	await _step(
+		frames,
+		func():
+			hold.call()
+			yaw[0] += absf(_car.angular_velocity.y) / frames
+	)
+
+	var radius: float = _car.linear_velocity.length() / yaw[0]
+	assert_float(radius).is_less(18.0)
+
+
 func test_fast_cornering_without_handbrake_keeps_grip() -> void:
 	_place(Vector3(48, 1.4, 47), PI / 2)
 	_car.input.throttle = 1.0
