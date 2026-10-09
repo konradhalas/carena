@@ -20,13 +20,14 @@ extends Camera3D
 @export var base_fov := 70.0
 @export var speed_fov := 12.0  ## extra degrees at top speed
 @export var top_speed := 32.0
-@export var shake_offset := 0.5  ## screen shift at full trauma
-@export var shake_roll := 0.06  ## rad
-@export var trauma_decay := 1.5  ## per second
-## Acceleration above this (m/s²) — landings, crashes, explosions — shakes.
-@export var shake_accel_threshold := 30.0
-@export var trauma_per_accel := 0.004
-@export var trauma_per_damage := 0.02
+@export var shake_offset := 0.3  ## screen shift at full trauma
+@export var shake_roll := 0.03  ## rad
+@export var trauma_decay := 2.5  ## per second
+## Acceleration above this (m/s²) — hard landings, crashes, explosions —
+## shakes. Driving over bumps peaks around 50-60 m/s² and must stay calm.
+@export var shake_accel_threshold := 120.0
+@export var trauma_per_accel := 0.0015
+@export var trauma_per_damage := 0.01
 
 var _heading := Vector3.FORWARD
 var _snap_pending := true
