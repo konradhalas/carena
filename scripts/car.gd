@@ -78,14 +78,17 @@ const FRONT_WHEELS: Array[int] = [0, 1]
 @export_group("Drift")
 ## Handbrake breaks the rear loose; the slide then holds while you stay on the
 ## throttle at a slip angle, and grip comes back once you straighten out.
-@export var drift_rear_grip := 0.08  ## rear grip while fully drifting
+@export var drift_rear_grip := 0.025  ## rear grip while fully drifting
 @export var drift_front_grip := 0.85  ## share of front grip kept while drifting
-@export var handbrake_deceleration := 14.0  ## locked rear wheels, m/s²
-@export var drift_kick := 2.6  ## yaw help when pulling the handbrake into a turn
+@export var handbrake_deceleration := 4.0  ## locked rear wheels, m/s²
+@export var drift_kick := 4.0  ## yaw help when pulling the handbrake into a turn
+## The kick fades out as the slide builds and is gone at this slip angle (rad),
+## so it starts a drift without over-rotating it.
+@export var drift_kick_max_slip := 0.5
 @export var drift_hold_slip := 0.18  ## rad of slip angle that sustains a drift on throttle
 @export var drift_sustain_level := 0.85  ## drift amount held while powersliding
-@export var drift_recovery := 2.2  ## per second, grip coming back
-@export var spin_out_slip := 1.25  ## rad; beyond this yaw is damped to avoid spinning out
+@export var drift_recovery := 1.5  ## per second, grip coming back
+@export var spin_out_slip := 0.75  ## rad; beyond this yaw is damped to avoid spinning out
 @export var spin_damping := 3.0
 
 @export_group("Stability")
@@ -572,8 +575,9 @@ func _update_drift(delta: float, speed: float, slip_angle: float, wheel_up: Vect
 	)
 	if input.handbrake and moving:
 		_drift = 1.0
-		if not is_zero_approx(input.steer):
-			apply_torque(wheel_up * -input.steer * drift_kick * mass)
+		var kick := clampf(1.0 - absf(slip_angle) / drift_kick_max_slip, 0.0, 1.0)
+		if not is_zero_approx(input.steer) and kick > 0.0:
+			apply_torque(wheel_up * -input.steer * drift_kick * kick * mass)
 	elif powersliding and _drift > 0.0:
 		var hold := minf(_drift, drift_sustain_level)  # hold, never build up
 		_drift = move_toward(_drift, hold, drift_recovery * delta)

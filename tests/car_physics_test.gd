@@ -90,6 +90,29 @@ func test_handbrake_into_a_turn_starts_a_drift_that_recovers() -> void:
 	assert_float(_forward_speed()).is_greater(20.0)
 
 
+func test_handbrake_tap_in_a_turn_slides_rather_than_brakes() -> void:
+	_clear_obstacles()
+	_place(Vector3(48, 1.4, 47), PI / 2)
+	_car.input.throttle = 1.0
+	await _step(seconds(1.5))
+	var entry_speed := _forward_speed()
+	_car.input.steer = 1.0
+	_car.input.handbrake = true
+	await _step(seconds(0.33))
+	_car.input.handbrake = false  # keep steering into the turn, stay on the throttle
+	var max_slip := [0.0]
+	var min_speed := [entry_speed]
+	await _step(
+		seconds(1),
+		func():
+			max_slip[0] = maxf(max_slip[0], absf(_slip_degrees()))
+			min_speed[0] = minf(min_speed[0], _car.linear_velocity.length())
+	)
+
+	assert_float(max_slip[0]).is_greater(15.0)
+	assert_float(entry_speed - min_speed[0]).is_less(10.0)
+
+
 func test_full_lock_launch_does_not_spin() -> void:
 	# Standing start, full steering lock, full throttle: a tight stable arc,
 	# not a spin.
