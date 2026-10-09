@@ -1,0 +1,29 @@
+[gd_resource type="ShaderMaterial" load_steps=7 format=3]
+
+[ext_resource type="Shader" path="res://shaders/dirt_terrain.gdshader" id="1_shader"]
+[ext_resource type="Texture2D" path="res://assets/textures/dirt/albedo.jpg" id="2_albedo"]
+[ext_resource type="Texture2D" path="res://assets/textures/dirt/normal.jpg" id="3_normal"]
+[ext_resource type="Texture2D" path="res://assets/textures/dirt/orm.jpg" id="4_orm"]
+
+[sub_resource type="FastNoiseLite" id="Noise_macro"]
+noise_type = 1
+frequency = 0.006
+fractal_octaves = 5
+
+[sub_resource type="NoiseTexture2D" id="Texture_macro"]
+width = 512
+height = 512
+seamless = true
+noise = SubResource("Noise_macro")
+
+[resource]
+shader = ExtResource("1_shader")
+shader_parameter/albedo_tex = ExtResource("2_albedo")
+shader_parameter/normal_tex = ExtResource("3_normal")
+shader_parameter/orm_tex = ExtResource("4_orm")
+shader_parameter/macro_tex = SubResource("Texture_macro")
+shader_parameter/tile_size = 4.0
+shader_parameter/macro_size = 70.0
+shader_parameter/macro_strength = 0.35
+shader_parameter/tint = Color(1, 0.93, 0.85, 1)
+shader_parameter/normal_strength = 1.0

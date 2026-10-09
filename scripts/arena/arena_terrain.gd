@@ -7,7 +7,7 @@ extends StaticBody3D
 ## client build identical collision. Origin at the arena centre; one height
 ## sample per metre. The visual mesh is skipped on headless servers.
 
-const MATERIAL := preload("res://materials/dirt.tres")
+const MATERIAL := preload("res://materials/dirt_terrain.tres")
 
 @export var half_size := 60  ## m from centre to wall
 @export var noise_seed := 7
@@ -151,5 +151,6 @@ func _build_mesh() -> ArrayMesh:
 			tool.add_index(b)
 			tool.add_index(d)
 			tool.add_index(c)
+	tool.generate_tangents()  # UV runs along world X/Z, as the dirt shader expects
 	tool.set_material(MATERIAL)
 	return tool.commit()
