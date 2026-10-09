@@ -48,13 +48,27 @@ jobs:
   tests:
     name: Tests
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      checks: write
     steps:
       - uses: actions/checkout@v7
-      - uses: godot-gdunit-labs/gdUnit4-action@v1.3.2
+      - name: Install Godot
+        run: |
+          base="https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}-stable"
+          zip="Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          curl -fsSLO "$base/$zip"
+          curl -fsSL "$base/SHA512-SUMS.txt" | grep " $zip\$" | sha512sum -c -
+          unzip -q "$zip"
+          mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" /usr/local/bin/godot
+      - name: Import project
+        run: godot --headless --import
+      # Headless on purpose: the tests don't need rendering, and software
+      # rendering on CI runners made the full renderer far too slow (timeouts).
+      - name: Run tests
+        timeout-minutes: 10
+        run: GODOT_BIN=/usr/local/bin/godot ./addons/gdUnit4/runtest.sh --headless --ignoreHeadlessMode -a res://tests
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
         with:
-          godot-version: ${{ env.GODOT_VERSION }}
-          version: installed
-          paths: res://tests
+          name: test-report
+          path: reports/
+          if-no-files-found: ignore
