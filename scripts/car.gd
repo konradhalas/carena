@@ -112,6 +112,7 @@ var _respawn_timer := 0.0
 var _respawn_requested := false
 var _bot: BotDriver
 var _effects: CarEffects
+var _suspension: CarSuspension
 
 @onready var _wheel_pivots: Array[Node3D] = [
 	$Visual/WheelFL, $Visual/WheelFR, $Visual/WheelRL, $Visual/WheelRR
@@ -122,7 +123,7 @@ var _effects: CarEffects
 ## On the front bumper at axle height — the car's centre of symmetry, so it
 ## fires the same whether the car is on its wheels or its roof.
 @onready var _muzzle: Marker3D = $Muzzle
-@onready var _body_mesh: MeshInstance3D = $Visual/Body
+@onready var _body_mesh: MeshInstance3D = $Visual/Chassis/Body
 
 
 func _ready() -> void:
@@ -133,6 +134,9 @@ func _ready() -> void:
 	if DisplayServer.get_name() != "headless":
 		_effects = CarEffects.new()
 		add_child(_effects)
+		_suspension = CarSuspension.new()
+		$Visual.add_child(_suspension)
+		_suspension.setup($Visual/Chassis, _wheel_pivots)
 	for pivot in _wheel_pivots:
 		_anchors.append(pivot.position)
 	net_transform = global_transform
@@ -157,6 +161,11 @@ func _physics_process(delta: float) -> void:
 	else:
 		_follow_snapshots()
 		_update_wheels_visual_only(delta)
+	if _suspension:
+		var velocity := (
+			linear_velocity if multiplayer.is_server() or _is_predicted() else net_velocity
+		)
+		_suspension.update(delta, velocity, global_basis)
 
 
 func _server_tick(delta: float) -> void:

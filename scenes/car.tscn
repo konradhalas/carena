@@ -8,7 +8,7 @@ friction = 0.3
 bounce = 0.1
 
 [sub_resource type="BoxShape3D" id="Shape_body"]
-size = Vector3(1.8, 0.75, 3.8)
+size = Vector3(1.2, 0.75, 3.8)
 
 [sub_resource type="CylinderShape3D" id="Shape_wheel"]
 height = 0.65
@@ -38,11 +38,7 @@ emission_energy_multiplier = 4.0
 
 [sub_resource type="BoxMesh" id="Mesh_body"]
 material = SubResource("Mat_hull")
-size = Vector3(1.8, 0.75, 3.8)
-
-[sub_resource type="BoxMesh" id="Mesh_axle"]
-material = SubResource("Mat_dark")
-size = Vector3(2.6, 0.15, 0.2)
+size = Vector3(1.2, 0.75, 3.8)
 
 [sub_resource type="BoxMesh" id="Mesh_taillight"]
 material = SubResource("Mat_taillight")
@@ -123,32 +119,26 @@ shape = SubResource("Shape_wheel")
 
 [node name="Visual" type="Node3D" parent="."]
 
-[node name="Body" type="MeshInstance3D" parent="Visual"]
+[node name="Chassis" type="Node3D" parent="Visual"]
+
+[node name="Body" type="MeshInstance3D" parent="Visual/Chassis"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.05)
 mesh = SubResource("Mesh_body")
 
-[node name="FrontAxle" type="MeshInstance3D" parent="Visual"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -1.4)
-mesh = SubResource("Mesh_axle")
-
-[node name="RearAxle" type="MeshInstance3D" parent="Visual"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1.35)
-mesh = SubResource("Mesh_axle")
-
-[node name="Headlight1" type="MeshInstance3D" parent="Visual"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.6, 0.1, -1.96)
+[node name="Headlight1" type="MeshInstance3D" parent="Visual/Chassis"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.4, 0, -1.96)
 mesh = SubResource("Mesh_headlight")
 
-[node name="Headlight2" type="MeshInstance3D" parent="Visual"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.6, 0.1, -1.96)
+[node name="Headlight2" type="MeshInstance3D" parent="Visual/Chassis"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.4, 0, -1.96)
 mesh = SubResource("Mesh_headlight")
 
-[node name="TailLight1" type="MeshInstance3D" parent="Visual"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.6, 0.1, 1.86)
+[node name="TailLight1" type="MeshInstance3D" parent="Visual/Chassis"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.4, 0, 1.86)
 mesh = SubResource("Mesh_taillight")
 
-[node name="TailLight2" type="MeshInstance3D" parent="Visual"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.6, 0.1, 1.86)
+[node name="TailLight2" type="MeshInstance3D" parent="Visual/Chassis"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.4, 0, 1.86)
 mesh = SubResource("Mesh_taillight")
 
 [node name="WheelFL" type="Node3D" parent="Visual"]
@@ -174,7 +164,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.45, 0, 1.35)
 [node name="Muzzle" type="Marker3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -2.05)
 
-[node name="MuzzleHole" type="MeshInstance3D" parent="Visual"]
+[node name="MuzzleHole" type="MeshInstance3D" parent="Visual/Chassis"]
 transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 0, -1.95)
 mesh = SubResource("Mesh_muzzle")
 

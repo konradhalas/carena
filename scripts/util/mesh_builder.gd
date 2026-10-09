@@ -104,6 +104,38 @@ static func tyre(
 	return lathe(profile, 32, material)
 
 
+## Coil spring along +Y from 0 to 1 (scale Y to set length): a round wire
+## swept along a helix. Smooth-shaded.
+static func coil_spring(
+	coils: float, radius: float, wire: float, material: Material = null
+) -> ArrayMesh:
+	var tool := SurfaceTool.new()
+	tool.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var steps := int(coils * 16)
+	var sides := 6
+	for i in steps + 1:
+		var t := float(i) / steps
+		var angle := TAU * coils * t
+		var centre := Vector3(cos(angle) * radius, t, sin(angle) * radius)
+		var outward := Vector3(cos(angle), 0.0, sin(angle))
+		for j in sides:
+			var around := TAU * j / sides
+			var offset := (outward * cos(around) + Vector3.UP * sin(around)) * wire
+			tool.set_normal(offset.normalized())
+			tool.add_vertex(centre + offset)
+	for i in steps:
+		for j in sides:
+			var a := i * sides + j
+			var b := i * sides + (j + 1) % sides
+			var c := a + sides
+			var d := b + sides
+			for index in [a, c, b, b, c, d]:
+				tool.add_index(index)
+	if material:
+		tool.set_material(material)
+	return tool.commit()
+
+
 ## Revolves a (radius, axial) profile around the X axis.
 static func lathe(
 	profile: PackedVector2Array, segments: int, material: Material = null
