@@ -36,6 +36,7 @@ func test_car_accelerates_straight() -> void:
 
 
 func test_car_jumps_ramp_and_lands_on_wheels() -> void:
+	_place(Vector3(-80, 1.4, 75), 0.0)  # run-up to the gap jump, heading -Z
 	_car.input.throttle = 1.0
 	var max_height := [0.0]
 	await _step(seconds(5), func(): max_height[0] = maxf(max_height[0], _car.global_position.y))
@@ -188,13 +189,10 @@ func test_car_on_its_side_tips_over() -> void:
 	assert_float(absf(_up())).is_greater(0.95)
 
 
-func test_reset_puts_car_back_on_wheels() -> void:
-	_place(Vector3(0, 2, 30), 0.0, PI)
-	await _step(seconds(1))
-	_car.input.reset = true
-	await _step(1)
-	_car.input.reset = false
-	await _step(seconds(1))
+func test_car_stuck_on_its_side_rights_itself() -> void:
+	_car.side_tip_torque = 0.0  # stays on its side unless the auto-flip kicks in
+	_place(Vector3(0, 1.8, 30), 0.0, deg_to_rad(90))
+	await _step(seconds(_car.auto_flip_delay + 1.5))
 
 	assert_float(_up()).is_greater(0.99)
 

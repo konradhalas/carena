@@ -5,7 +5,8 @@ extends Node3D
 ## first car that drives through it and actually needs it, then brings it
 ## back after `respawn_time`. `active` replicates through the "Sync" child;
 ## collection is announced to every peer for the sound and flash.
-## Sits on the terrain: its height is taken from the sibling Terrain node.
+## Sits on the terrain (height from the sibling Terrain node) unless
+## `on_terrain` is off, e.g. for one placed on the bridge deck.
 
 enum Kind { REPAIR, AMMO }
 
@@ -22,6 +23,7 @@ const AMMO_COLOR := Color(1.0, 0.75, 0.2)
 @export var ammo_amount := 6
 @export var respawn_time := 15.0
 @export var radius := 2.8
+@export var on_terrain := true
 
 var active := true:
 	set(value):
@@ -39,7 +41,7 @@ var _spin := 0.0
 func _ready() -> void:
 	add_to_group("pickups")
 	var terrain := get_parent().get_parent().get_node_or_null("Terrain") as ArenaTerrain
-	if terrain and not Engine.is_editor_hint():
+	if terrain and on_terrain and not Engine.is_editor_hint():
 		position.y = terrain.height_at(position.x, position.z)
 	_build_visual()
 
@@ -137,7 +139,8 @@ func _build_visual() -> void:
 	glow.offsets = gradient.offsets
 	glow.colors = PackedColorArray([Color.BLACK, Color.BLACK, color, Color.BLACK, Color.BLACK])
 	var ring := Decal.new()
-	ring.size = Vector3(radius * 2.0, 3.0, radius * 2.0)
+	# Deep enough for bumpy dirt; shallow on a deck so it stays off the underside.
+	ring.size = Vector3(radius * 2.0, 3.0 if on_terrain else 0.6, radius * 2.0)
 	ring.texture_albedo = _radial(gradient)
 	ring.texture_emission = _radial(glow)
 	ring.emission_energy = 2.0

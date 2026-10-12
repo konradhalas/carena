@@ -7,14 +7,14 @@ extends Node3D
 
 const CONCRETE := preload("res://materials/concrete.tres")
 
-@export var field_half_size := 61.0  ## arena wall centre line
+@export var field_half_size := 121.0  ## arena wall centre line
 @export var wall_height := 4.0
 @export var wall_thickness := 2.0
 @export var cap_color := Color(0.95, 0.75, 0.1)
 
 @export_group("Hall")
 @export var hall_margin := 14.0  ## m of concrete floor between arena wall and hall wall
-@export var roof_height := 28.0
+@export var roof_height := 34.0
 @export var hall_color := Color(0.09, 0.1, 0.12)
 
 @export_group("Lighting")
@@ -98,7 +98,9 @@ func _build_floodlights() -> void:
 	var housing := _material(Color(0.08, 0.08, 0.09), 0.5)
 	var lens := _glow_material(floodlight_color, 6.0)
 	var mount_height := roof_height - 3.0
-	var ring := field_half_size * 0.8
+	# Outer ring of eight (corners cast shadows) plus one wide lamp over the
+	# middle. Every extra spot light costs a few percent of frame time.
+	var ring := field_half_size * 0.72
 	var placements := [
 		[Vector3(-ring, 0, -ring), true],
 		[Vector3(ring, 0, -ring), true],
@@ -108,6 +110,7 @@ func _build_floodlights() -> void:
 		[Vector3(0, 0, ring), false],
 		[Vector3(-ring, 0, 0), false],
 		[Vector3(ring, 0, 0), false],
+		[Vector3(0, 0, 0.01), false],
 	]
 	for placement: Array in placements:
 		var ground: Vector3 = placement[0]
@@ -123,13 +126,13 @@ func _build_floodlights() -> void:
 		light.light_color = floodlight_color
 		light.light_energy = floodlight_energy
 		light.light_size = 0.6
-		light.spot_range = 80.0
-		light.spot_angle = 32.0
+		light.spot_range = 110.0
+		light.spot_angle = 55.0 if ground.length() < 1.0 else 46.0
 		light.spot_attenuation = 0.6
 		light.shadow_enabled = placement[1]
 		light.light_volumetric_fog_energy = 1.5
 		_generated.add_child(light)
-		light.look_at_from_position(mount, ground * 0.35)
+		light.look_at_from_position(mount, ground * 0.8)
 		# Lamp housing with a glowing lens facing where the light points (-Z).
 		var body := _box(Vector3(1.4, 1.4, 1.0), Vector3(0, 0, 0.3), housing)
 		body.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF

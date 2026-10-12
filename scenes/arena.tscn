@@ -1,4 +1,4 @@
-[gd_scene load_steps=10 format=3]
+[gd_scene load_steps=12 format=3]
 
 [ext_resource type="Script" path="res://scripts/arena/arena_terrain.gd" id="1_terrain"]
 [ext_resource type="Material" path="res://materials/padding.tres" id="2_padding"]
@@ -6,13 +6,15 @@
 [ext_resource type="Script" path="res://scripts/arena/arena_dressing.gd" id="4_dressing"]
 [ext_resource type="Script" path="res://scripts/effects/tire_tracks.gd" id="5_tracks"]
 [ext_resource type="PackedScene" path="res://scenes/pickup.tscn" id="6_pickup"]
+[ext_resource type="Script" path="res://scripts/arena/bridge.gd" id="7_bridge"]
+[ext_resource type="Script" path="res://scripts/arena/ramp.gd" id="8_ramp"]
 
 [sub_resource type="BoxMesh" id="BoxMesh_wall"]
 material = ExtResource("2_padding")
-size = Vector3(124, 4, 2)
+size = Vector3(244, 4, 2)
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_wall"]
-size = Vector3(124, 4, 2)
+size = Vector3(244, 4, 2)
 
 [sub_resource type="Environment" id="Env"]
 background_mode = 1
@@ -36,7 +38,7 @@ glow_hdr_threshold = 1.2
 volumetric_fog_enabled = true
 volumetric_fog_density = 0.0025
 volumetric_fog_albedo = Color(0.7, 0.66, 0.6, 1)
-volumetric_fog_length = 120.0
+volumetric_fog_length = 160.0
 volumetric_fog_ambient_inject = 0.0
 adjustment_enabled = true
 adjustment_contrast = 1.08
@@ -57,21 +59,26 @@ shadow_enabled = true
 
 [node name="Reflections" type="ReflectionProbe" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 8, 0)
-size = Vector3(152, 30, 152)
+size = Vector3(276, 40, 276)
 box_projection = true
 interior = true
 
 [node name="Dressing" type="Node3D" parent="."]
 script = ExtResource("4_dressing")
+field_half_size = 121.0
 
 [node name="Terrain" type="StaticBody3D" parent="."]
 script = ExtResource("1_terrain")
+mounds = Array[Vector4]([Vector4(60, 80, 12, 2.5), Vector4(-60, -75, 16, 3.5), Vector4(95, -30, 11, 2.2), Vector4(-30, 92, 10, 2), Vector4(35, -95, 10, 1.8), Vector4(80, 50, 13, -2), Vector4(-35, 60, 9, 1.4)])
+flat_zones = Array[Vector3]([Vector3(20, 20, 8), Vector3(-20, 20, 8), Vector3(20, -20, 8), Vector3(-20, -20, 9), Vector3(95, 15, 8), Vector3(0, 95, 9), Vector3(75, -75, 9), Vector3(-100, -35, 8), Vector3(-80, -92, 8), Vector3(85, 85, 8), Vector3(0, -38, 8), Vector3(45, -55, 8), Vector3(-55, -25, 8), Vector3(40, 75, 8)])
+flat_rects = Array[Vector4]([Vector4(0, 0, 50, 7), Vector4(-80, 5, 7, 27)])
 
 [node name="TireTracks" type="Node3D" parent="." groups=["tire_tracks"]]
 script = ExtResource("5_tracks")
+bounds = AABB(-130, -5, -130, 260, 30, 260)
 
 [node name="WallNorth" type="StaticBody3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, -61)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, -121)
 
 [node name="Mesh" type="MeshInstance3D" parent="WallNorth"]
 mesh = SubResource("BoxMesh_wall")
@@ -80,7 +87,7 @@ mesh = SubResource("BoxMesh_wall")
 shape = SubResource("BoxShape3D_wall")
 
 [node name="WallSouth" type="StaticBody3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 61)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 121)
 
 [node name="Mesh" type="MeshInstance3D" parent="WallSouth"]
 mesh = SubResource("BoxMesh_wall")
@@ -89,7 +96,7 @@ mesh = SubResource("BoxMesh_wall")
 shape = SubResource("BoxShape3D_wall")
 
 [node name="WallEast" type="StaticBody3D" parent="."]
-transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, 61, 2, 0)
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, 121, 2, 0)
 
 [node name="Mesh" type="MeshInstance3D" parent="WallEast"]
 mesh = SubResource("BoxMesh_wall")
@@ -98,7 +105,7 @@ mesh = SubResource("BoxMesh_wall")
 shape = SubResource("BoxShape3D_wall")
 
 [node name="WallWest" type="StaticBody3D" parent="."]
-transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, -61, 2, 0)
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, -121, 2, 0)
 
 [node name="Mesh" type="MeshInstance3D" parent="WallWest"]
 mesh = SubResource("BoxMesh_wall")
@@ -106,81 +113,235 @@ mesh = SubResource("BoxMesh_wall")
 [node name="Shape" type="CollisionShape3D" parent="WallWest"]
 shape = SubResource("BoxShape3D_wall")
 
+
+[node name="Bridge" type="StaticBody3D" parent="."]
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, 0, 0, 0)
+script = ExtResource("7_bridge")
+
+[node name="JumpTakeoff" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -80, 0, 30)
+script = ExtResource("8_ramp")
+length = 16.0
+height = 3.2
+width = 9.0
+
+[node name="JumpLanding" type="StaticBody3D" parent="."]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, -80, 0, -20)
+script = ExtResource("8_ramp")
+length = 22.0
+height = 3.0
+width = 11.0
+edge_stripe = false
+
 [node name="StackNE" type="Node3D" parent="."]
 transform = Transform3D(0.9553, 0, 0.2955, 0, 1, 0, -0.2955, 0, 0.9553, 20, 0, 20)
 
 [node name="Container1" parent="StackNE" instance=ExtResource("3_container")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, -0, 0, 1, 0, 0, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
 color = Color(0.6, 0.16, 0.1, 1)
 
 [node name="Container2" parent="StackNE" instance=ExtResource("3_container")]
-transform = Transform3D(0.9968, 0, 0.07991, 0, 1, 0, -0.07991, 0, 0.9968, 0.4, 2.59, 0.1)
+transform = Transform3D(0.9968, 0, 0.0799, 0, 1, 0, -0.0799, 0, 0.9968, 0.4, 2.59, 0.1)
 color = Color(0.1, 0.3, 0.55, 1)
 
 [node name="PairNW" type="Node3D" parent="."]
 transform = Transform3D(0.8776, 0, -0.4794, 0, 1, 0, 0.4794, 0, 0.8776, -20, 0, 20)
 
 [node name="Container1" parent="PairNW" instance=ExtResource("3_container")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, -0, 0, 1, 0, 0, -1.3)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -1.3)
 color = Color(0.15, 0.4, 0.25, 1)
 
 [node name="Container2" parent="PairNW" instance=ExtResource("3_container")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, -0, 0, 1, 0, 0, 1.3)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1.3)
 color = Color(0.85, 0.42, 0.1, 1)
 
 [node name="CornerSE" type="Node3D" parent="."]
 transform = Transform3D(0.3624, 0, 0.932, 0, 1, 0, -0.932, 0, 0.3624, 20, 0, -20)
 
 [node name="Container1" parent="CornerSE" instance=ExtResource("3_container")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, -0, 0, 1, 0, 0, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
 color = Color(0.45, 0.47, 0.5, 1)
 
 [node name="Container2" parent="CornerSE" instance=ExtResource("3_container")]
-transform = Transform3D(6.123e-17, 0, 1, 0, 1, 0, -1, 0, 6.123e-17, -1.8, 0, 4.3)
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, -1.8, 0, 4.3)
 color = Color(0.6, 0.16, 0.1, 1)
 
 [node name="TowerSW" type="Node3D" parent="."]
 transform = Transform3D(0.9888, 0, -0.1494, 0, 1, 0, 0.1494, 0, 0.9888, -20, 0, -20)
 
 [node name="Container1" parent="TowerSW" instance=ExtResource("3_container")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, -0, 0, 1, 0, 0, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
 color = Color(0.1, 0.3, 0.55, 1)
 
 [node name="Container2" parent="TowerSW" instance=ExtResource("3_container")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, -0, 0, 1, 0, 2.59, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.59, 0)
 color = Color(0.9, 0.75, 0.15, 1)
 
 [node name="Container3" parent="TowerSW" instance=ExtResource("3_container")]
-transform = Transform3D(0.9988, 0, 0.04998, 0, 1, 0, -0.04998, 0, 0.9988, 0, 5.18, 0)
+transform = Transform3D(0.9988, 0, 0.05, 0, 1, 0, -0.05, 0, 0.9988, 0, 5.18, 0)
 color = Color(0.88, 0.88, 0.86, 1)
+
+[node name="StackE" type="Node3D" parent="."]
+transform = Transform3D(0.9801, 0, 0.1987, 0, 1, 0, -0.1987, 0, 0.9801, 95, 0, 15)
+
+[node name="Container1" parent="StackE" instance=ExtResource("3_container")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
+color = Color(0.1, 0.45, 0.45, 1)
+
+[node name="Container2" parent="StackE" instance=ExtResource("3_container")]
+transform = Transform3D(0.995, 0, -0.0998, 0, 1, 0, 0.0998, 0, 0.995, 0.3, 2.59, 0)
+color = Color(0.85, 0.42, 0.1, 1)
+
+[node name="WallS" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 95)
+
+[node name="Container1" parent="WallS" instance=ExtResource("3_container")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6.6, 0, 0)
+color = Color(0.6, 0.16, 0.1, 1)
+
+[node name="Container2" parent="WallS" instance=ExtResource("3_container")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
+color = Color(0.45, 0.47, 0.5, 1)
+
+[node name="Container3" parent="WallS" instance=ExtResource("3_container")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.6, 0, 0)
+color = Color(0.1, 0.3, 0.55, 1)
+
+[node name="Container4" parent="WallS" instance=ExtResource("3_container")]
+transform = Transform3D(0.9982, 0, 0.06, 0, 1, 0, -0.06, 0, 0.9982, 0, 2.59, 0)
+color = Color(0.9, 0.75, 0.15, 1)
+
+[node name="TowerNE" type="Node3D" parent="."]
+transform = Transform3D(0.9211, 0, -0.3894, 0, 1, 0, 0.3894, 0, 0.9211, 75, 0, -75)
+
+[node name="Container1" parent="TowerNE" instance=ExtResource("3_container")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
+color = Color(0.15, 0.4, 0.25, 1)
+
+[node name="Container2" parent="TowerNE" instance=ExtResource("3_container")]
+transform = Transform3D(0.9988, 0, 0.05, 0, 1, 0, -0.05, 0, 0.9988, 0, 2.59, 0)
+color = Color(0.6, 0.16, 0.1, 1)
+
+[node name="Container3" parent="TowerNE" instance=ExtResource("3_container")]
+transform = Transform3D(0.9992, 0, -0.04, 0, 1, 0, 0.04, 0, 0.9992, 0, 5.18, 0)
+color = Color(0.1, 0.3, 0.55, 1)
+
+[node name="PairW" type="Node3D" parent="."]
+transform = Transform3D(0.2675, 0, 0.9636, 0, 1, 0, -0.9636, 0, 0.2675, -100, 0, -35)
+
+[node name="Container1" parent="PairW" instance=ExtResource("3_container")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -1.3)
+color = Color(0.85, 0.42, 0.1, 1)
+
+[node name="Container2" parent="PairW" instance=ExtResource("3_container")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1.3)
+color = Color(0.88, 0.88, 0.86, 1)
+
+[node name="CornerNW" type="Node3D" parent="."]
+transform = Transform3D(0.995, 0, 0.0998, 0, 1, 0, -0.0998, 0, 0.995, -80, 0, -92)
+
+[node name="Container1" parent="CornerNW" instance=ExtResource("3_container")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
+color = Color(0.1, 0.3, 0.55, 1)
+
+[node name="Container2" parent="CornerNW" instance=ExtResource("3_container")]
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, -1.8, 0, 4.3)
+color = Color(0.9, 0.75, 0.15, 1)
+
+[node name="PairSE" type="Node3D" parent="."]
+transform = Transform3D(0.6967, 0, 0.7174, 0, 1, 0, -0.7174, 0, 0.6967, 85, 0, 85)
+
+[node name="Container1" parent="PairSE" instance=ExtResource("3_container")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -1.3)
+color = Color(0.45, 0.47, 0.5, 1)
+
+[node name="Container2" parent="PairSE" instance=ExtResource("3_container")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1.3)
+color = Color(0.6, 0.16, 0.1, 1)
+
+[node name="LoneN" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -38)
+
+[node name="Container1" parent="LoneN" instance=ExtResource("3_container")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
+color = Color(0.85, 0.42, 0.1, 1)
+
+[node name="LoneNE" type="Node3D" parent="."]
+transform = Transform3D(0.8253, 0, 0.5646, 0, 1, 0, -0.5646, 0, 0.8253, 45, 0, -55)
+
+[node name="Container1" parent="LoneNE" instance=ExtResource("3_container")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
+color = Color(0.1, 0.45, 0.45, 1)
+
+[node name="LoneW" type="Node3D" parent="."]
+transform = Transform3D(0.7648, 0, -0.6442, 0, 1, 0, 0.6442, 0, 0.7648, -55, 0, -25)
+
+[node name="Container1" parent="LoneW" instance=ExtResource("3_container")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
+color = Color(0.6, 0.16, 0.1, 1)
+
+[node name="Container2" parent="LoneW" instance=ExtResource("3_container")]
+transform = Transform3D(0.995, 0, 0.0998, 0, 1, 0, -0.0998, 0, 0.995, 0, 2.59, 0)
+color = Color(0.45, 0.47, 0.5, 1)
+
+[node name="LoneS" type="Node3D" parent="."]
+transform = Transform3D(0.9553, 0, -0.2955, 0, 1, 0, 0.2955, 0, 0.9553, 40, 0, 75)
+
+[node name="Container1" parent="LoneS" instance=ExtResource("3_container")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
+color = Color(0.15, 0.4, 0.25, 1)
 
 [node name="Pickups" type="Node3D" parent="."]
 
+[node name="RepairS" parent="Pickups" instance=ExtResource("6_pickup")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 60)
+kind = 0
+
 [node name="RepairNE" parent="Pickups" instance=ExtResource("6_pickup")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 40, 0, 30)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 70, 0, -45)
 kind = 0
 
 [node name="RepairSW" parent="Pickups" instance=ExtResource("6_pickup")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -38, 0, -40)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -60, 0, 55)
 kind = 0
 
-[node name="RepairS" parent="Pickups" instance=ExtResource("6_pickup")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 42)
+[node name="RepairNW" parent="Pickups" instance=ExtResource("6_pickup")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -70, 0, -70)
 kind = 0
 
-[node name="AmmoW" parent="Pickups" instance=ExtResource("6_pickup")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -40, 0, 4)
-kind = 1
-
-[node name="AmmoSE" parent="Pickups" instance=ExtResource("6_pickup")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 40, 0, -40)
-kind = 1
-
-[node name="AmmoN" parent="Pickups" instance=ExtResource("6_pickup")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -42)
-kind = 1
+[node name="RepairE" parent="Pickups" instance=ExtResource("6_pickup")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 100, 0, 50)
+kind = 0
 
 [node name="AmmoE" parent="Pickups" instance=ExtResource("6_pickup")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 30, 0, 0)
 kind = 1
 
+[node name="AmmoW" parent="Pickups" instance=ExtResource("6_pickup")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -30, 0, 0)
+kind = 1
+
+[node name="AmmoN" parent="Pickups" instance=ExtResource("6_pickup")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -60)
+kind = 1
+
+[node name="AmmoSE" parent="Pickups" instance=ExtResource("6_pickup")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 60, 0, 40)
+kind = 1
+
+[node name="AmmoFarN" parent="Pickups" instance=ExtResource("6_pickup")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20, 0, -100)
+kind = 1
+
+[node name="AmmoFarW" parent="Pickups" instance=ExtResource("6_pickup")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -105, 0, 20)
+kind = 1
+
+[node name="AmmoFarS" parent="Pickups" instance=ExtResource("6_pickup")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -20, 0, 105)
+kind = 1
+
+[node name="BridgeAmmo" parent="Pickups" instance=ExtResource("6_pickup")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 6, 0)
+kind = 1
+on_terrain = false

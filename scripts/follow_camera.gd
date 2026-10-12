@@ -17,6 +17,9 @@ extends Camera3D
 @export var offset := Vector3(0.0, 5.0, 10.0)
 @export var look_height := 1.5
 @export var follow_speed := 6.0
+## Keeps this far in front of walls, containers and the bridge deck when
+## they come between the camera and the car.
+@export var wall_margin := 0.4
 
 @export_group("Feel")
 @export var base_fov := 70.0
@@ -60,7 +63,9 @@ func _physics_process(delta: float) -> void:
 	global_position = global_position.lerp(
 		_desired_position(), clampf(follow_speed * delta, 0.0, 1.0)
 	)
-	look_at(target.global_position + Vector3.UP * look_height)
+	var focus := target.global_position + Vector3.UP * look_height
+	global_position = _clear_view(focus, global_position)
+	look_at(focus)
 	_apply_feel(delta)
 
 
@@ -99,6 +104,28 @@ func _desired_position() -> Vector3:
 	if heading.length_squared() > 0.01:
 		_heading = heading.normalized()
 	return target.global_position + Basis.looking_at(_heading) * offset
+
+
+## Pulls the camera in front of the first static obstacle between it and the
+## focus point. Cars (rigid bodies) are ignored, so passing traffic doesn't
+## make the camera jump.
+func _clear_view(focus: Vector3, wanted: Vector3) -> Vector3:
+	var space := get_world_3d().direct_space_state
+	var query := PhysicsRayQueryParameters3D.create(focus, wanted)
+	var exclude: Array[RID] = []
+	if target is CollisionObject3D:
+		exclude.append((target as CollisionObject3D).get_rid())
+	for attempt in 4:
+		query.exclude = exclude
+		var hit := space.intersect_ray(query)
+		if hit.is_empty():
+			return wanted
+		if hit.collider is RigidBody3D:
+			exclude.append(hit.rid)
+			continue
+		var back := (focus - wanted).normalized()
+		return hit.position + back * wall_margin + hit.normal * wall_margin * 0.5
+	return wanted
 
 
 func _on_target_fired() -> void:

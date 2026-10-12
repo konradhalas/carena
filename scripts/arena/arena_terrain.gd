@@ -2,40 +2,26 @@
 class_name ArenaTerrain
 extends StaticBody3D
 ## The arena's dirt floor as a heightmap: gentle bumps everywhere, berms
-## banked up against the walls, a few mounds and the jump kicker. Heights are
+## banked up against the walls, mounds and craters. Heights are
 ## generated deterministically from the exports, so the server and every
 ## client build identical collision. Origin at the arena centre; one height
 ## sample per metre. The visual mesh is skipped on headless servers.
 
 const MATERIAL := preload("res://materials/dirt_terrain.tres")
 
-@export var half_size := 60  ## m from centre to wall
+@export var half_size := 120  ## m from centre to wall
 @export var noise_seed := 7
 @export var bump_height := 0.22  ## m, peak-to-mean
 @export var bump_frequency := 0.07
-@export var berm_height := 1.6
-@export var berm_width := 7.0
-## Smooth hills: x, z, radius, height.
-@export var mounds: Array[Vector4] = [
-	Vector4(40, 30, 10, 2.0),
-	Vector4(-40, 4, 9, 1.6),
-	Vector4(-38, -40, 10, 2.2),
-	Vector4(40, -40, 9, 1.5),
-]
+@export var berm_height := 2.0
+@export var berm_width := 9.0
+## Smooth hills (negative height: craters): x, z, radius, height.
+@export var mounds: Array[Vector4] = []
 ## Areas kept free of bumps (under containers): x, z, radius.
-@export var flat_zones: Array[Vector3] = [
-	Vector3(20, 20, 7), Vector3(-20, 20, 7), Vector3(20, -20, 8), Vector3(-20, -20, 6)
-]
-
-@export_group("Kicker")
-## Jump: a straight dirt slope rising towards -Z, then a short steep drop.
-@export var kicker_x := 0.0
-@export var kicker_start_z := -8.0
-@export var kicker_top_z := -22.0
-@export var kicker_end_z := -25.0
-@export var kicker_height := 3.6
-@export var kicker_half_width := 4.0
-@export var kicker_side_falloff := 3.0
+@export var flat_zones: Array[Vector3] = []
+## Areas kept at exactly zero height (under bridges and ramps, whose bases
+## sit on y = 0): x, z, half extent x, half extent z.
+@export var flat_rects: Array[Vector4] = []
 
 var _heights := PackedFloat32Array()
 var _samples := 0  ## per side
@@ -93,8 +79,7 @@ func _generate_heights() -> PackedFloat32Array:
 
 
 func _height(x: float, z: float, noise: FastNoiseLite) -> float:
-	var kicker := _kicker(x, z)
-	var calm := 1.0 - smoothstep(0.0, 0.5, kicker)
+	var calm := 1.0
 	for zone in flat_zones:
 		var distance := Vector2(x, z).distance_to(Vector2(zone.x, zone.y))
 		calm = minf(calm, smoothstep(zone.z, zone.z + 4.0, distance))
@@ -107,19 +92,12 @@ func _height(x: float, z: float, noise: FastNoiseLite) -> float:
 		var distance := Vector2(x, z).distance_to(Vector2(mound.x, mound.y))
 		if distance < mound.z:
 			height += mound.w * (0.5 + 0.5 * cos(PI * distance / mound.z))
-	return height + kicker
 
-
-func _kicker(x: float, z: float) -> float:
-	var profile := 0.0
-	if z <= kicker_start_z and z >= kicker_top_z:
-		profile = (kicker_start_z - z) / (kicker_start_z - kicker_top_z)
-	elif z < kicker_top_z and z >= kicker_end_z:
-		profile = (z - kicker_end_z) / (kicker_top_z - kicker_end_z)
-	var side := smoothstep(
-		kicker_half_width + kicker_side_falloff, kicker_half_width, absf(x - kicker_x)
-	)
-	return kicker_height * profile * side
+	# Fade to exactly 0 over 4 m around flat rectangles.
+	for rect in flat_rects:
+		var outside := maxf(absf(x - rect.x) - rect.z, absf(z - rect.y) - rect.w)
+		height *= smoothstep(0.0, 4.0, outside)
+	return height
 
 
 func _sample(ix: int, iz: int) -> float:

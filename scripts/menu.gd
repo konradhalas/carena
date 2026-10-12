@@ -22,8 +22,15 @@ func _ready() -> void:
 	%Host.pressed.connect(func(): _start(Network.Mode.HOST))
 	%Join.pressed.connect(_join)
 	_address.text_submitted.connect(func(_text): _join())
-	%Join.grab_focus.call_deferred()
+	_focus_join.call_deferred()
 	_animate_background()
+
+
+## Deferred from _ready: focus needs the tree, and a dedicated server leaves
+## the menu before then.
+func _focus_join() -> void:
+	if is_inside_tree():
+		%Join.grab_focus()
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -56,6 +63,14 @@ func _join() -> void:
 
 
 func _start(mode: Network.Mode) -> void:
+	# Loading the game scene stalls a frame or two: show it's happening.
+	var button: Button = %Join if mode == Network.Mode.CLIENT else %Host
+	button.text = "LOADING…"
+	for control: BaseButton in [%Join, %Host]:
+		control.disabled = true
+	_show_status("")
+	await get_tree().process_frame
+	await get_tree().process_frame
 	Network.player_name = _name.text.strip_edges()
 	var settings := ConfigFile.new()
 	settings.set_value("player", "name", Network.player_name)

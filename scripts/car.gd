@@ -180,7 +180,6 @@ var _sent_inputs: Array[PackedFloat32Array] = []  ## owning client: newest last
 var _last_received_seq := 0  ## server: newest input seq received from the owner
 var _applied_seq := 0  ## server: input seq used during the last physics step
 var _input_queue: Array[Array] = []  ## server: [seq, CarInput], oldest first
-var _reset_pending := false
 var _snapshots := SnapshotBuffer.new()
 var _prediction := PredictionReconciler.new()
 var _fire_cooldown := 0.0
@@ -307,8 +306,6 @@ func _predicted_tick(delta: float) -> void:
 	for encoded in _sent_inputs:
 		packed.append_array(encoded)
 	_submit_inputs.rpc_id(1, _input_seq, packed)
-	if input.reset:
-		_request_reset.rpc_id(1)
 	if is_destroyed:
 		input = CarInput.new()
 	_simulate(delta)
@@ -357,12 +354,6 @@ func _consume_queued_input() -> void:
 	var entry: Array = _input_queue.pop_front()
 	_applied_seq = entry[0]
 	input = entry[1]
-
-
-@rpc("any_peer", "call_remote", "reliable")
-func _request_reset() -> void:
-	if multiplayer.get_remote_sender_id() == owner_peer_id:
-		_reset_pending = true
 
 
 ## Server only. Returns true when this hit destroyed the car.
@@ -681,10 +672,10 @@ func _tip_off_side() -> void:
 func _update_recovery(grounded_wheels: int, delta: float) -> void:
 	var stuck := grounded_wheels == 0 and linear_velocity.length() < 1.0
 	_stuck_time = _stuck_time + delta if stuck else 0.0
-	if input.reset or _reset_pending or _stuck_time > auto_flip_delay:
+	if _stuck_time > auto_flip_delay:
 		_stuck_time = 0.0
 		_flip_requested = true
-		_reset_pending = false
+		sleeping = false  # a resting body skips _integrate_forces, where the flip happens
 
 
 func _follow_snapshots() -> void:

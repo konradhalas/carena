@@ -1,0 +1,103 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://scripts/connecting_overlay.gd" id="1_script"]
+[ext_resource type="Theme" path="res://assets/ui/menu_theme.tres" id="2_theme"]
+[ext_resource type="Texture2D" path="res://assets/ui/menu_background.jpg" id="3_bg"]
+[ext_resource type="FontFile" path="res://assets/fonts/ArchivoBlack-Regular.ttf" id="4_title"]
+
+[sub_resource type="StyleBoxFlat" id="bar_fill"]
+bg_color = Color(0.95, 0.7, 0.11, 1)
+corner_radius_top_left = 2
+corner_radius_top_right = 2
+corner_radius_bottom_right = 2
+corner_radius_bottom_left = 2
+
+[sub_resource type="StyleBoxFlat" id="bar_track"]
+bg_color = Color(1, 1, 1, 0.1)
+corner_radius_top_left = 2
+corner_radius_top_right = 2
+corner_radius_bottom_right = 2
+corner_radius_bottom_left = 2
+
+[node name="ConnectingOverlay" type="CanvasLayer"]
+layer = 10
+script = ExtResource("1_script")
+
+[node name="Root" type="Control" parent="."]
+unique_name_in_owner = true
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("2_theme")
+
+[node name="Background" type="TextureRect" parent="Root"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("3_bg")
+expand_mode = 1
+stretch_mode = 6
+
+[node name="Shade" type="ColorRect" parent="Root"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.078, 0.067, 0.051, 0.78)
+
+[node name="Center" type="CenterContainer" parent="Root"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Column" type="VBoxContainer" parent="Root/Center"]
+custom_minimum_size = Vector2(420, 0)
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="Title" type="Label" parent="Root/Center/Column"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_fonts/font = ExtResource("4_title")
+theme_override_font_sizes/font_size = 40
+text = "CONNECTING"
+horizontal_alignment = 1
+
+[node name="Detail" type="Label" parent="Root/Center/Column"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+theme_override_font_sizes/font_size = 16
+text = "127.0.0.1:7777"
+horizontal_alignment = 1
+
+[node name="Bar" type="Panel" parent="Root/Center/Column"]
+unique_name_in_owner = true
+clip_contents = true
+custom_minimum_size = Vector2(0, 4)
+layout_mode = 2
+theme_override_styles/panel = SubResource("bar_track")
+
+[node name="Fill" type="Panel" parent="Root/Center/Column/Bar"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_right = 80.0
+offset_bottom = 4.0
+theme_override_styles/panel = SubResource("bar_fill")
+
+[node name="Cancel" type="Button" parent="Root/Center/Column"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(160, 0)
+layout_mode = 2
+size_flags_horizontal = 4
+text = "Cancel"

@@ -3,14 +3,24 @@ extends Node3D
 ## MultiplayerSpawner; clients receive them automatically.
 
 const CAR_SCENE := preload("res://scenes/car.tscn")
-const SPAWN_RADIUS := 45.0
+const CONNECTING_OVERLAY := preload("res://scenes/connecting_overlay.tscn")
+const SPAWN_RADIUS := 85.0
 const SPAWN_HEIGHT := 1.2  ## above the terrain at the spawn point
 const GOLDEN_ANGLE := 2.39996
+## Free space a spawn point needs (a car with some margin), and how many ring
+## positions to try before giving up and spawning anyway.
+const SPAWN_CLEARANCE := Vector3(3.5, 2.0, 6.0)
+const SPAWN_ATTEMPTS := 16
 const STATE_LOG_INTERVAL := 2.0
 const SPAWN_PROTECTION := 2.0
+## Client gives up if it isn't connected (or has no car yet) after this long.
+## ENet's own connect timeout is much longer.
+const JOIN_TIMEOUT := 10.0
 
 var _next_spawn_index := 0
 var _state_log_timer := 0.0
+var _overlay: Node  ## clients: covers the screen until our car exists
+var _join_time := 0.0
 
 @onready var _players: Node3D = $Players
 @onready var _match: MatchState = $MatchState
@@ -42,12 +52,16 @@ func _ready() -> void:
 			_match.add_player(me, Network.player_name)
 			_spawn_car_for(me)
 	else:
-		multiplayer.connected_to_server.connect(
-			func(): _register_name.rpc_id(1, Network.player_name)
-		)
+		multiplayer.connected_to_server.connect(_on_connected)
+		_overlay = CONNECTING_OVERLAY.instantiate()
+		add_child(_overlay)
+		_overlay.show_step("CONNECTING", "%s:%d" % [Network.address, Network.port])
+		_overlay.cancelled.connect(Network.leave)
 
 
 func _process(delta: float) -> void:
+	if _overlay:
+		_update_joining(delta)
 	if Network.log_state:
 		_state_log_timer += delta
 		if _state_log_timer >= STATE_LOG_INTERVAL:
@@ -64,6 +78,30 @@ func _process(delta: float) -> void:
 	)
 
 
+func _on_connected() -> void:
+	_register_name.rpc_id(1, Network.player_name)
+	_join_time = 0.0
+	_overlay.show_step("JOINING MATCH", "%s:%d" % [Network.address, Network.port])
+
+
+## Client: lift the overlay once our car has arrived; give up after a while.
+func _update_joining(delta: float) -> void:
+	if _players.has_node(str(multiplayer.get_unique_id())):
+		_overlay.dismiss()
+		_overlay = null
+		return
+	_join_time += delta
+	if _join_time < JOIN_TIMEOUT:
+		return
+	_overlay = null
+	var server := "%s:%d" % [Network.address, Network.port]
+	var status := multiplayer.multiplayer_peer.get_connection_status()
+	if status == MultiplayerPeer.CONNECTION_CONNECTED:
+		Network.leave("Joined %s, but the match didn't start" % server)
+	else:
+		Network.leave("Server %s is not responding" % server)
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
 		Network.leave()
@@ -71,13 +109,29 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _spawn_car_for(peer_id: int) -> void:
 	# Spread players around a ring facing the centre; the golden angle keeps
-	# consecutive spawns far apart for any number of players.
-	var angle := _next_spawn_index * GOLDEN_ANGLE
-	_next_spawn_index += 1
-	var position := Vector3(cos(angle), 0.0, sin(angle)) * SPAWN_RADIUS
-	position.y = _terrain.height_at(position.x, position.z) + SPAWN_HEIGHT
-	var yaw := atan2(cos(angle), sin(angle))
+	# consecutive spawns far apart for any number of players. Ring positions
+	# blocked by containers, ramps or the bridge are skipped.
+	var position := Vector3.ZERO
+	var yaw := 0.0
+	for attempt in SPAWN_ATTEMPTS:
+		var angle := _next_spawn_index * GOLDEN_ANGLE
+		_next_spawn_index += 1
+		position = Vector3(cos(angle), 0.0, sin(angle)) * SPAWN_RADIUS
+		position.y = _terrain.height_at(position.x, position.z) + SPAWN_HEIGHT
+		yaw = atan2(cos(angle), sin(angle))
+		if _is_spawn_clear(position, yaw):
+			break
 	_spawner.spawn({"peer_id": peer_id, "position": position, "yaw": yaw})
+
+
+func _is_spawn_clear(position: Vector3, yaw: float) -> bool:
+	var box := BoxShape3D.new()
+	box.size = SPAWN_CLEARANCE
+	var query := PhysicsShapeQueryParameters3D.new()
+	query.shape = box
+	query.transform = Transform3D(Basis(Vector3.UP, yaw), position)
+	query.exclude = [_terrain.get_rid()]
+	return get_world_3d().direct_space_state.intersect_shape(query, 1).is_empty()
 
 
 func _on_peer_connected(peer_id: int) -> void:

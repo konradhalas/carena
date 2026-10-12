@@ -166,4 +166,4 @@ layout_mode = 2
 [node name="Controls" type="Label" parent="Margin/Column"]
 layout_mode = 2
 theme_type_variation = &"MutedLabel"
-text = "WASD drive  ·  Mouse / K fire  ·  Space drift  ·  R reset"
+text = "WASD drive  ·  Mouse / K fire  ·  Space drift"
