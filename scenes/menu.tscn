@@ -163,7 +163,17 @@ horizontal_alignment = 1
 custom_minimum_size = Vector2(0, 24)
 layout_mode = 2
 
-[node name="Controls" type="Label" parent="Margin/Column"]
+[node name="Footer" type="HBoxContainer" parent="Margin/Column"]
 layout_mode = 2
+
+[node name="Controls" type="Label" parent="Margin/Column/Footer"]
+layout_mode = 2
+size_flags_horizontal = 3
 theme_type_variation = &"MutedLabel"
 text = "WASD drive  ·  Mouse / K fire  ·  Space drift"
+
+[node name="Quit" type="Button" parent="Margin/Column/Footer"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 15
+text = "Quit"

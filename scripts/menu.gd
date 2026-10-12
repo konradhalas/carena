@@ -1,5 +1,5 @@
 extends Control
-## Main menu: join a server (the main path) or host a game.
+## Main menu: join a server (the main path), host a game or quit.
 ## F9 opens the offline sandbox — a developer shortcut, not shown in the UI.
 
 const SANDBOX_SCENE := "res://scenes/sandbox.tscn"
@@ -20,6 +20,7 @@ func _ready() -> void:
 	_address.text = settings.get_value("player", "address", Network.address)
 	_show_status(Network.last_message)
 	%Host.pressed.connect(func(): _start(Network.Mode.HOST))
+	%Quit.pressed.connect(get_tree().quit)
 	%Join.pressed.connect(_join)
 	_address.text_submitted.connect(func(_text): _join())
 	_focus_join.call_deferred()
