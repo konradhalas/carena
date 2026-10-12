@@ -1,0 +1,57 @@
+name: Release
+
+# Push a tag like v0.1.0 to build all platforms and publish a GitHub release.
+# Run manually (workflow_dispatch) to build without releasing — the zips are
+# then attached to the run as artifacts.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+env:
+  GODOT_VERSION: 4.7.2
+
+jobs:
+  build:
+    name: Export builds
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install Godot and export templates
+        run: |
+          base="https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}-stable"
+          zip="Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          tpz="Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          curl -fsSLO "$base/$zip"
+          curl -fsSLO "$base/$tpz"
+          curl -fsSL "$base/SHA512-SUMS.txt" | grep -E " ($zip|$tpz)\$" | sha512sum -c -
+          unzip -q "$zip"
+          mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" /usr/local/bin/godot
+          dest="$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable"
+          mkdir -p "$dest"
+          unzip -q "$tpz" -d templates_tmp
+          mv templates_tmp/templates/* "$dest/"
+      - name: Import project
+        run: godot --headless --import
+      - name: Export
+        run: |
+          mkdir -p build/linux build/windows build/macos dist
+          godot --headless --export-release "Linux" build/linux/carena.x86_64
+          godot --headless --export-release "Windows" build/windows/carena.exe
+          godot --headless --export-release "macOS" build/macos/carena-macos.zip
+          (cd build/linux && zip -q ../../dist/carena-linux-x86_64.zip carena.x86_64)
+          (cd build/windows && zip -q ../../dist/carena-windows-x86_64.zip carena.exe)
+          cp build/macos/carena-macos.zip dist/carena-macos.zip
+          ls -la dist
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: builds
+          path: dist/
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/*.zip --title "Carena $GITHUB_REF_NAME" --generate-notes

@@ -74,3 +74,4 @@ common/physics_interpolation=true
 anti_aliasing/quality/use_debanding=true
 environment/volumetric_fog/volume_size=96
 environment/volumetric_fog/volume_depth=96
+textures/vram_compression/import_etc2_astc=true
