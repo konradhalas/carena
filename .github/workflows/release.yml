@@ -1,8 +1,9 @@
 name: Release
 
-# Push a tag like v0.1.0 to build all platforms and publish a GitHub release.
+# Push a tag like v0.1.0 to build all platforms, publish a GitHub release and
+# push the dedicated server image to ghcr.io/konradhalas/carena-server.
 # Run manually (workflow_dispatch) to build without releasing — the zips are
-# then attached to the run as artifacts.
+# then attached to the run as artifacts and the image is built but not pushed.
 on:
   push:
     tags: ["v*"]
@@ -10,6 +11,7 @@ on:
 
 env:
   GODOT_VERSION: 4.7.2
+  IMAGE: ghcr.io/konradhalas/carena-server
 
 jobs:
   build:
@@ -17,6 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      packages: write
     steps:
       - uses: actions/checkout@v7
       - name: Install Godot and export templates
@@ -37,14 +40,17 @@ jobs:
         run: godot --headless --import
       - name: Export
         run: |
-          mkdir -p build/linux build/windows build/macos dist
+          mkdir -p build/linux build/windows build/macos build/server dist
           godot --headless --export-release "Linux" build/linux/carena.x86_64
           godot --headless --export-release "Windows" build/windows/carena.exe
           godot --headless --export-release "macOS" build/macos/carena-macos.zip
+          godot --headless --export-release "Linux Server" build/server/carena-server.x86_64
           (cd build/linux && zip -q ../../dist/carena-linux-x86_64.zip carena.x86_64)
           (cd build/windows && zip -q ../../dist/carena-windows-x86_64.zip carena.exe)
           cp build/macos/carena-macos.zip dist/carena-macos.zip
           ls -la dist
+      - name: Build server image
+        run: docker build -t "$IMAGE:latest" .
       - name: Upload artifacts
         uses: actions/upload-artifact@v7.0.1
         with:
@@ -55,3 +61,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release create "$GITHUB_REF_NAME" dist/*.zip --title "Carena $GITHUB_REF_NAME" --generate-notes
+      - name: Push server image
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          echo "${{ github.token }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          docker tag "$IMAGE:latest" "$IMAGE:${GITHUB_REF_NAME#v}"
+          docker push "$IMAGE:latest"
+          docker push "$IMAGE:${GITHUB_REF_NAME#v}"

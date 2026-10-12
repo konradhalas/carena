@@ -60,6 +60,7 @@ Multiplayer 3D car arena combat game (shooting + traps) in Godot 4.7, GDScript.
 - Tests (gdUnit4, vendored in `addons/gdUnit4`): `GODOT_BIN=$(which godot) ./addons/gdUnit4/runtest.sh --headless --ignoreHeadlessMode -a tests`.
 - Lint/format (gdtoolkit): `uvx --from gdtoolkit==4.5.0 gdlint scripts tests tools` and `... gdformat scripts tests tools`.
 - Release builds: `export_presets.cfg` has Linux, Windows and macOS (universal, ad-hoc signed, not notarized) presets; tests, tools, web and gdUnit4 are excluded. Locally: `godot --headless --export-release "macOS" build/macos/carena-macos.zip` (needs 4.7.2 export templates). Pushing a `v*` tag runs `.github/workflows/release.yml`, which exports all three and publishes a GitHub release (the website's Download button points at the latest one); running it manually only builds artifacts.
+- Server image (`Dockerfile`): wraps the "Linux Server" export (dedicated server preset, visuals stripped) in debian-slim, entrypoint `--headless -- --server`, extra args (`--match-time=`, `--kill-limit=`, `--port=`) go after the image name. Release tags push it to `ghcr.io/konradhalas/carena-server` (`latest` + version). Run: `docker run -d -p 7777:7777/udp ghcr.io/konradhalas/carena-server`. Docker Desktop on the dev Mac doesn't forward UDP from the host, so test locally with a client in a container on the same docker network instead.
 - CI (`.github/workflows/ci.yml`) runs all of the above on push to main and on PRs. Keep it green: run tests + lint before committing.
 
 ## Testing
