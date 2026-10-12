@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Carena — multiplayer car arena combat</title>
+<meta name="description" content="Carena is a multiplayer 3D car arena combat game: buggies, heavy cannons and a dirt arena in an indoor hall. Built with Godot.">
+<meta property="og:title" content="Carena">
+<meta property="og:description" content="Multiplayer car arena combat. Drift, jump, shoot — up to 50 players per match.">
+<meta property="og:image" content="https://carena.konradhalas.pl/img/hero.jpg">
+<meta property="og:url" content="https://carena.konradhalas.pl/">
+<link rel="canonical" href="https://carena.konradhalas.pl/">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #14110d;
+    --surface: #1e1a14;
+    --text: #efe7da;
+    --muted: #a99c88;
+    --accent: #f2b21c;
+    --accent-ink: #1a1405;
+    --line: #2f2920;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 17px/1.6 Inter, system-ui, sans-serif;
+  }
+  a { color: var(--accent); }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 0 20px; }
+
+  .hero {
+    position: relative;
+    min-height: min(88vh, 860px);
+    display: flex;
+    align-items: flex-end;
+    background: url("img/hero.jpg") center / cover no-repeat;
+  }
+  .hero::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(20,17,13,.15) 0%, rgba(20,17,13,.35) 50%, var(--bg) 100%);
+  }
+  .hero .wrap { position: relative; z-index: 1; padding-bottom: 64px; width: 100%; }
+  h1 {
+    font-family: "Archivo Black", Impact, sans-serif;
+    font-size: clamp(56px, 12vw, 128px);
+    line-height: .9;
+    letter-spacing: -.02em;
+    margin: 0;
+    text-transform: uppercase;
+  }
+  .tagline { font-size: clamp(18px, 2.4vw, 24px); color: var(--text); max-width: 34ch; margin: 16px 0 28px; }
+  .buttons { display: flex; flex-wrap: wrap; gap: 12px; }
+  .btn {
+    display: inline-block;
+    padding: 13px 22px;
+    border-radius: 6px;
+    font-weight: 600;
+    text-decoration: none;
+    border: 2px solid var(--accent);
+  }
+  .btn.primary { background: var(--accent); color: var(--accent-ink); }
+  .btn.ghost { color: var(--text); background: rgba(20,17,13,.5); }
+  .btn:hover { filter: brightness(1.1); }
+
+  section { padding: 72px 0; }
+  h2 {
+    font-family: "Archivo Black", Impact, sans-serif;
+    font-size: 30px;
+    text-transform: uppercase;
+    margin: 0 0 28px;
+  }
+  .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); gap: 18px; }
+  .feature { background: var(--surface); border: 1px solid var(--line); border-top: 3px solid var(--accent); border-radius: 6px; padding: 20px; }
+  .feature h3 { margin: 0 0 6px; font-size: 18px; }
+  .feature p { margin: 0; color: var(--muted); font-size: 15px; }
+
+  .gallery { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: 12px; }
+  .gallery img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 6px; display: block; }
+
+  .play ol { padding-left: 20px; color: var(--muted); }
+  .play li { margin-bottom: 8px; }
+  code {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 14px;
+    color: var(--text);
+    word-break: break-word;
+  }
+  .keys { display: grid; grid-template-columns: max-content 1fr; gap: 6px 18px; color: var(--muted); }
+  .keys b { color: var(--text); font-weight: 600; }
+
+  footer { border-top: 1px solid var(--line); padding: 28px 0; color: var(--muted); font-size: 14px; }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <h1>Carena</h1>
+    <p class="tagline">Multiplayer car arena combat. Drift, jump and blast your way through a dirt arena — up to 50 players per match.</p>
+    <div class="buttons">
+      <a class="btn primary" href="https://github.com/konradhalas/carena/releases">Download</a>
+      <a class="btn ghost" href="https://github.com/konradhalas/carena">Source on GitHub</a>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section>
+    <div class="wrap">
+      <h2>What it is</h2>
+      <div class="features">
+        <div class="feature">
+          <h3>Heavy cannon</h3>
+          <p>Slow, punchy shells with drop. Four hits kill, every hit shoves. Twelve rounds — then go find an ammo crate.</p>
+        </div>
+        <div class="feature">
+          <h3>Arcade handling</h3>
+          <p>Raycast suspension buggies with handbrake drifts, jumps and berms. Flip over? Keep driving on the roof.</p>
+        </div>
+        <div class="feature">
+          <h3>Online multiplayer</h3>
+          <p>Server-authoritative with client-side prediction. Host a game, join a friend or run a dedicated server.</p>
+        </div>
+        <div class="feature">
+          <h3>Timed matches</h3>
+          <p>Kill limit or clock, kill feed, scoreboard. Repair kits and ammo crates around the arena.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <h2>Screenshots</h2>
+      <div class="gallery">
+        <img src="img/shot-1.jpg" alt="Buggy firing its cannon next to a shipping container" loading="lazy">
+        <img src="img/shot-2.jpg" alt="Buggy drifting past containers, tyre marks in the dirt" loading="lazy">
+        <img src="img/shot-3.jpg" alt="Two buggies chasing each other across the arena" loading="lazy">
+      </div>
+    </div>
+  </section>
+
+  <section class="play">
+    <div class="wrap">
+      <h2>Play</h2>
+      <ol>
+        <li>Grab a build from <a href="https://github.com/konradhalas/carena/releases">Releases</a>, or run from source with <a href="https://godotengine.org/">Godot 4.7</a>: <code>godot --path .</code></li>
+        <li>Host a game or join one by IP (UDP port 7777).</li>
+        <li>Dedicated server: <code>godot --headless -- --server</code></li>
+      </ol>
+      <div class="keys">
+        <b>WASD / arrows</b><span>Drive</span>
+        <b>Left mouse / K / Ctrl</b><span>Fire</span>
+        <b>Space</b><span>Handbrake (drift)</span>
+        <b>R</b><span>Reset car</span>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">Carena · made with <a href="https://godotengine.org/">Godot</a> · <a href="https://github.com/konradhalas/carena">GitHub</a></div>
+</footer>
+
+</body>
+</html>
