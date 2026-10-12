@@ -14,7 +14,7 @@ Multiplayer 3D car arena combat game (shooting + traps) in Godot 4.7, GDScript.
   - Never let client code decide game outcomes (HP, kills, pickups).
 - **Networking** (`scripts/network.gd` autoload `Network`, `scripts/game.gd`, `scenes/game.tscn`):
   - ENet (UDP), port 7777. Transport is created only in `Network.open_connection()` — a web build would swap ENet for WebSocket/WebRTC there.
-  - Modes: host (listen server, plays too), client, dedicated server (`--server`, headless). Menu (`scenes/menu.tscn`) is the main scene; `scenes/sandbox.tscn` is offline driving (also used by tests).
+  - Modes: host (listen server, plays too), client, dedicated server (`--server`, headless). Menu (`scenes/menu.tscn`, themed by `assets/ui/menu_theme.tres`, background screenshot `assets/ui/menu_background.jpg`) is the main scene: Join is the primary action, Host secondary. `scenes/sandbox.tscn` is offline driving (also used by tests) — hidden from players, F9 in the menu opens it.
   - The game scene opens the connection itself (after its `MultiplayerSpawner` exists), so replicated spawns always have a target node.
   - Server spawns one car per peer via `PlayerSpawner` (`spawn_function` runs on every peer); car node name = peer id.
   - Car: server is authoritative. State replicates through the car's `Sync` node (`net_*`, ~30 Hz) tagged with the server physics tick (`net_tick`) and the last owner input the server applied (`net_input_seq`).

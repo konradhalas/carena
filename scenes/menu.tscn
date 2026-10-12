@@ -1,6 +1,18 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://scripts/menu.gd" id="1_menu"]
+[ext_resource type="Theme" path="res://assets/ui/menu_theme.tres" id="2_theme"]
+[ext_resource type="Texture2D" path="res://assets/ui/menu_background.jpg" id="3_bg"]
+[ext_resource type="FontFile" path="res://assets/fonts/ArchivoBlack-Regular.ttf" id="4_title"]
+
+[sub_resource type="Gradient" id="shade_gradient"]
+offsets = PackedFloat32Array(0, 0.35, 0.75)
+colors = PackedColorArray(0.078, 0.067, 0.051, 0.92, 0.078, 0.067, 0.051, 0.7, 0.078, 0.067, 0.051, 0)
+
+[sub_resource type="GradientTexture2D" id="shade"]
+gradient = SubResource("shade_gradient")
+width = 256
+height = 4
 
 [node name="Menu" type="Control"]
 layout_mode = 3
@@ -9,76 +21,149 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+theme = ExtResource("2_theme")
 script = ExtResource("1_menu")
 
-[node name="Background" type="ColorRect" parent="."]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-color = Color(0.08, 0.1, 0.14, 1)
-
-[node name="Center" type="CenterContainer" parent="."]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-
-[node name="Panel" type="VBoxContainer" parent="Center"]
-custom_minimum_size = Vector2(380, 0)
-layout_mode = 2
-theme_override_constants/separation = 12
-
-[node name="Title" type="Label" parent="Center/Panel"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 56
-text = "CARENA"
-horizontal_alignment = 1
-
-[node name="Name" type="LineEdit" parent="Center/Panel"]
+[node name="Background" type="TextureRect" parent="."]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 40)
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("3_bg")
+expand_mode = 1
+stretch_mode = 6
+
+[node name="Shade" type="TextureRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = SubResource("shade")
+expand_mode = 1
+
+[node name="Margin" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 80
+theme_override_constants/margin_top = 48
+theme_override_constants/margin_right = 80
+theme_override_constants/margin_bottom = 40
+
+[node name="Column" type="VBoxContainer" parent="Margin"]
+custom_minimum_size = Vector2(440, 0)
+layout_mode = 2
+size_flags_horizontal = 0
+theme_override_constants/separation = 0
+alignment = 1
+
+[node name="Title" type="Label" parent="Margin/Column"]
+layout_mode = 2
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.5)
+theme_override_constants/shadow_offset_x = 0
+theme_override_constants/shadow_offset_y = 4
+theme_override_fonts/font = ExtResource("4_title")
+theme_override_font_sizes/font_size = 96
+text = "CARENA"
+
+[node name="Tagline" type="Label" parent="Margin/Column"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.95, 0.7, 0.11, 1)
+theme_override_font_sizes/font_size = 18
+text = "MULTIPLAYER CAR ARENA COMBAT"
+
+[node name="Gap" type="Control" parent="Margin/Column"]
+custom_minimum_size = Vector2(0, 32)
+layout_mode = 2
+
+[node name="Panel" type="PanelContainer" parent="Margin/Column"]
+layout_mode = 2
+theme_type_variation = &"MenuPanel"
+
+[node name="Fields" type="VBoxContainer" parent="Margin/Column/Panel"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="NameLabel" type="Label" parent="Margin/Column/Panel/Fields"]
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+text = "PLAYER NAME"
+
+[node name="Name" type="LineEdit" parent="Margin/Column/Panel/Fields"]
+unique_name_in_owner = true
 layout_mode = 2
 placeholder_text = "Your name"
 max_length = 16
 
-[node name="Host" type="Button" parent="Center/Panel"]
+[node name="Gap" type="Control" parent="Margin/Column/Panel/Fields"]
+custom_minimum_size = Vector2(0, 8)
+layout_mode = 2
+
+[node name="AddressLabel" type="Label" parent="Margin/Column/Panel/Fields"]
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+text = "SERVER"
+
+[node name="Address" type="LineEdit" parent="Margin/Column/Panel/Fields"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
-text = "Host game"
+placeholder_text = "Address, e.g. 203.0.113.7"
 
-[node name="Separator" type="HSeparator" parent="Center/Panel"]
+[node name="Gap2" type="Control" parent="Margin/Column/Panel/Fields"]
+custom_minimum_size = Vector2(0, 8)
 layout_mode = 2
 
-[node name="Address" type="LineEdit" parent="Center/Panel"]
+[node name="Join" type="Button" parent="Margin/Column/Panel/Fields"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 40)
 layout_mode = 2
-placeholder_text = "Server address"
+theme_type_variation = &"PrimaryButton"
+text = "JOIN GAME"
 
-[node name="Join" type="Button" parent="Center/Panel"]
+[node name="Status" type="Label" parent="Margin/Column/Panel/Fields"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 44)
-layout_mode = 2
-text = "Join game"
-
-[node name="Separator2" type="HSeparator" parent="Center/Panel"]
-layout_mode = 2
-
-[node name="Sandbox" type="Button" parent="Center/Panel"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 44)
-layout_mode = 2
-text = "Drive offline (sandbox)"
-
-[node name="Status" type="Label" parent="Center/Panel"]
-unique_name_in_owner = true
+visible = false
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.55, 0.45, 1)
+theme_override_font_sizes/font_size = 15
 horizontal_alignment = 1
 autowrap_mode = 3
+
+[node name="Gap3" type="Control" parent="Margin/Column/Panel/Fields"]
+custom_minimum_size = Vector2(0, 8)
+layout_mode = 2
+
+[node name="Separator" type="HSeparator" parent="Margin/Column/Panel/Fields"]
+layout_mode = 2
+
+[node name="Gap4" type="Control" parent="Margin/Column/Panel/Fields"]
+custom_minimum_size = Vector2(0, 8)
+layout_mode = 2
+
+[node name="Host" type="Button" parent="Margin/Column/Panel/Fields"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Host a game"
+
+[node name="HostHint" type="Label" parent="Margin/Column/Panel/Fields"]
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+text = "Others join your IP on UDP port 7777"
+horizontal_alignment = 1
+
+[node name="Gap2" type="Control" parent="Margin/Column"]
+custom_minimum_size = Vector2(0, 24)
+layout_mode = 2
+
+[node name="Controls" type="Label" parent="Margin/Column"]
+layout_mode = 2
+theme_type_variation = &"MutedLabel"
+text = "WASD drive  ·  Mouse / K fire  ·  Space drift  ·  R reset"
