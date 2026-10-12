@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Carena — multiplayer car arena combat</title>
-<meta name="description" content="Carena is a multiplayer 3D car arena combat game: buggies, heavy cannons and a dirt arena in an indoor hall. Built with Godot.">
+<meta name="description" content="Carena: buggies with cannons in a dirt arena. Drift, jump and shoot your friends. Free for Windows, macOS and Linux.">
 <meta property="og:title" content="Carena">
-<meta property="og:description" content="Multiplayer car arena combat. Drift, jump, shoot — up to 50 players per match.">
+<meta property="og:description" content="Buggies with cannons in a dirt arena. Drift, jump and shoot your friends.">
 <meta property="og:image" content="https://carena.konradhalas.pl/img/hero.jpg">
 <meta property="og:url" content="https://carena.konradhalas.pl/">
 <link rel="canonical" href="https://carena.konradhalas.pl/">
@@ -108,10 +108,10 @@
 <header class="hero">
   <div class="wrap">
     <h1>Carena</h1>
-    <p class="tagline">Multiplayer car arena combat. Drift, jump and blast your way through a dirt arena — up to 50 players per match.</p>
+    <p class="tagline">Buggies with cannons in a dirt arena. Drift, jump and shoot your friends.</p>
     <div class="buttons">
       <a class="btn primary" href="https://github.com/konradhalas/carena/releases/latest">Download</a>
-      <a class="btn ghost" href="https://github.com/konradhalas/carena">Source on GitHub</a>
+      <a class="btn ghost" href="#play">How to play</a>
     </div>
   </div>
 </header>
@@ -122,20 +122,20 @@
       <h2>What it is</h2>
       <div class="features">
         <div class="feature">
-          <h3>Heavy cannon</h3>
-          <p>Slow, punchy shells with drop. Four hits kill, every hit shoves. Twelve rounds — then go find an ammo crate.</p>
+          <h3>One big gun</h3>
+          <p>Every hit knocks the other car sideways. Four hits and it's scrap — make your twelve shells count.</p>
         </div>
         <div class="feature">
-          <h3>Arcade handling</h3>
-          <p>Raycast suspension buggies with handbrake drifts, jumps and berms. Flip over? Keep driving on the roof.</p>
+          <h3>Stunt-show driving</h3>
+          <p>Handbrake drifts, big jumps, a bridge to race over or under. Rolled over? Keep driving on your roof.</p>
         </div>
         <div class="feature">
-          <h3>Online multiplayer</h3>
-          <p>Server-authoritative with client-side prediction. Host a game, join a friend or run a dedicated server.</p>
+          <h3>Play with friends</h3>
+          <p>Host a game in one click and let your friends join, or hop onto a server.</p>
         </div>
         <div class="feature">
-          <h3>Timed matches</h3>
-          <p>Kill limit or clock, kill feed, scoreboard. Repair kits and ammo crates around the arena.</p>
+          <h3>Quick, messy matches</h3>
+          <p>Most wrecks when the clock runs out wins. Grab repair kits and ammo to stay in the fight.</p>
         </div>
       </div>
     </div>
@@ -152,14 +152,14 @@
     </div>
   </section>
 
-  <section class="play">
+  <section class="play" id="play">
     <div class="wrap">
       <h2>Play</h2>
       <ol>
-        <li>Grab a build for Windows, macOS or Linux from <a href="https://github.com/konradhalas/carena/releases/latest">the latest release</a>, or run from source with <a href="https://godotengine.org/">Godot 4.7</a>: <code>godot --path .</code><br>
-          The macOS build is not notarized: if macOS blocks it, go to System Settings → Privacy &amp; Security and click Open Anyway.</li>
-        <li>Host a game or join one by IP (UDP port 7777).</li>
-        <li>Dedicated server: <code>godot --headless -- --server</code></li>
+        <li><a href="https://github.com/konradhalas/carena/releases/latest">Download the game</a> for Windows, macOS or Linux, unzip it and start it.<br>
+          On a Mac, if it won't open: System Settings → Privacy &amp; Security → Open Anyway.</li>
+        <li>Pick a name, type in the server address and hit <b>Join game</b>.</li>
+        <li>Or click <b>Host a game</b> and give your friends your IP address.</li>
       </ol>
       <div class="keys">
         <b>WASD / arrows</b><span>Drive</span>
@@ -171,7 +171,7 @@
 </main>
 
 <footer>
-  <div class="wrap">Carena · made with <a href="https://godotengine.org/">Godot</a> · <a href="https://github.com/konradhalas/carena">GitHub</a></div>
+  <div class="wrap">Carena · want to run your own server or tinker with the code? It's all on <a href="https://github.com/konradhalas/carena">GitHub</a></div>
 </footer>
 
 </body>
