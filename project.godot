@@ -6,6 +6,7 @@ config_version=5
 
 config/name="Carena"
 run/main_scene="res://scenes/menu.tscn"
+run/flush_stdout_on_print.dedicated_server=true
 config/features=PackedStringArray("4.7", "Forward Plus")
 
 [autoload]
